@@ -232,6 +232,8 @@ public class ZKDatabase {
     };
 
     /**
+     * 加载数据到zk数据库中
+     *
      * load the database from the disk onto memory and also add
      * the transactions to the committedlog in memory.
      * @return the last valid zxid on disk

@@ -17,15 +17,16 @@
  */
 package org.apache.zookeeper.cli;
 
+import org.apache.zookeeper.ZooKeeper;
+
 import java.io.PrintStream;
 import java.util.Map;
-import org.apache.zookeeper.ZooKeeper;
 
 /**
  * base class for all CLI commands
  */
 abstract public class CliCommand {
-    protected ZooKeeper zk;
+    protected ZooKeeper zk; // zk客户端
     protected PrintStream out;
     protected PrintStream err;
     private String cmdStr;

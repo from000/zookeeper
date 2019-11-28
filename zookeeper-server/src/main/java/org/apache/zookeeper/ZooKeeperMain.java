@@ -18,56 +18,24 @@
 
 package org.apache.zookeeper;
 
+import org.apache.yetus.audience.InterfaceAudience;
+import org.apache.zookeeper.ZooDefs.Ids;
+import org.apache.zookeeper.admin.ZooKeeperAdmin;
+import org.apache.zookeeper.cli.*;
+import org.apache.zookeeper.client.ZKClientConfig;
+import org.apache.zookeeper.data.Stat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.NoSuchElementException;
-
-import org.apache.yetus.audience.InterfaceAudience;
-import org.apache.zookeeper.cli.CliException;
-import org.apache.zookeeper.cli.CommandNotFoundException;
-import org.apache.zookeeper.cli.MalformedCommandException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.apache.zookeeper.ZooDefs.Ids;
-import org.apache.zookeeper.data.Stat;
-
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.apache.zookeeper.cli.AddAuthCommand;
-import org.apache.zookeeper.cli.CliCommand;
-import org.apache.zookeeper.cli.CloseCommand;
-import org.apache.zookeeper.cli.CreateCommand;
-import org.apache.zookeeper.cli.DelQuotaCommand;
-import org.apache.zookeeper.cli.DeleteAllCommand;
-import org.apache.zookeeper.cli.DeleteCommand;
-import org.apache.zookeeper.cli.RemoveWatchesCommand;
-import org.apache.zookeeper.cli.GetAclCommand;
-import org.apache.zookeeper.cli.GetCommand;
-import org.apache.zookeeper.cli.GetConfigCommand;
-import org.apache.zookeeper.cli.ListQuotaCommand;
-import org.apache.zookeeper.cli.Ls2Command;
-import org.apache.zookeeper.cli.LsCommand;
-import org.apache.zookeeper.cli.ReconfigCommand;
-import org.apache.zookeeper.cli.SetAclCommand;
-import org.apache.zookeeper.cli.SetCommand;
-import org.apache.zookeeper.cli.SetQuotaCommand;
-import org.apache.zookeeper.cli.StatCommand;
-import org.apache.zookeeper.cli.SyncCommand;
-import org.apache.zookeeper.client.ZKClientConfig;
-import org.apache.zookeeper.admin.ZooKeeperAdmin;
 
 /**
  * The command line client to ZooKeeper.
@@ -76,6 +44,7 @@ import org.apache.zookeeper.admin.ZooKeeperAdmin;
 @InterfaceAudience.Public
 public class ZooKeeperMain {
     private static final Logger LOG = LoggerFactory.getLogger(ZooKeeperMain.class);
+    // 命令 -> 命令可选项
     static final Map<String,String> commandMap = new HashMap<String,String>( );
     static final Map<String,CliCommand> commandMapCli =
             new HashMap<String,CliCommand>( );
@@ -128,6 +97,9 @@ public class ZooKeeperMain {
     }
     }
 
+    /**
+     * 用法说明
+     */
     static void usage() {
         System.err.println("ZooKeeper -server host:port cmd args");
         List<String> cmdList = new ArrayList<String>(commandMap.keySet());

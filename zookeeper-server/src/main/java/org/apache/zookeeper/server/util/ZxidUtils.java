@@ -17,8 +17,16 @@
  */
 
 package org.apache.zookeeper.server.util;
-
+/*
+ZXID是一个长度64位的数字，其中低32位是按照数字递增，即每次客户端发起一个proposal，低32位的数字简单加1。
+                            高32位是epoch用来标识Leader关系是否改变，每次一个Leader被选出来(epoch加1)，它都会有一个新的epoch。
+ */
 public class ZxidUtils {
+    /**
+     * 根据zxid获取选举次数Epoch
+     * @param zxid
+     * @return
+     */
 	static public long getEpochFromZxid(long zxid) {
 		return zxid >> 32L;
 	}

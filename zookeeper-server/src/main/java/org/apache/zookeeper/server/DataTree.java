@@ -796,6 +796,13 @@ public class DataTree {
         return this.processTxn(header, txn, false);
     }
 
+    /**
+     * 处理事务
+     * @param header
+     * @param txn
+     * @param isSubTxn
+     * @return
+     */
     public ProcessTxnResult processTxn(TxnHeader header, Record txn, boolean isSubTxn)
     {
         ProcessTxnResult rc = new ProcessTxnResult();
@@ -811,6 +818,7 @@ public class DataTree {
                 case OpCode.create:
                     CreateTxn createTxn = (CreateTxn) txn;
                     rc.path = createTxn.getPath();
+                    // 创建节点
                     createNode(
                             createTxn.getPath(),
                             createTxn.getData(),
@@ -819,7 +827,7 @@ public class DataTree {
                             createTxn.getParentCVersion(),
                             header.getZxid(), header.getTime(), null);
                     break;
-                case OpCode.create2:
+                case OpCode.create2: // 创建带有节点状态
                     CreateTxn create2Txn = (CreateTxn) txn;
                     rc.path = create2Txn.getPath();
                     Stat stat = new Stat();
@@ -832,7 +840,7 @@ public class DataTree {
                             header.getZxid(), header.getTime(), stat);
                     rc.stat = stat;
                     break;
-                case OpCode.createTTL:
+                case OpCode.createTTL: // 创建带有ttl的节点
                     CreateTTLTxn createTtlTxn = (CreateTTLTxn) txn;
                     rc.path = createTtlTxn.getPath();
                     stat = new Stat();
@@ -845,7 +853,7 @@ public class DataTree {
                             header.getZxid(), header.getTime(), stat);
                     rc.stat = stat;
                     break;
-                case OpCode.createContainer:
+                case OpCode.createContainer: // 创建容器节点
                     CreateContainerTxn createContainerTxn = (CreateContainerTxn) txn;
                     rc.path = createContainerTxn.getPath();
                     stat = new Stat();
@@ -858,14 +866,14 @@ public class DataTree {
                             header.getZxid(), header.getTime(), stat);
                     rc.stat = stat;
                     break;
-                case OpCode.delete:
+                case OpCode.delete: // 删除
                 case OpCode.deleteContainer:
                     DeleteTxn deleteTxn = (DeleteTxn) txn;
                     rc.path = deleteTxn.getPath();
                     deleteNode(deleteTxn.getPath(), header.getZxid());
                     break;
-                case OpCode.reconfig:
-                case OpCode.setData:
+                case OpCode.reconfig: // zookeeper重新配置
+                case OpCode.setData: // 设置数据
                     SetDataTxn setDataTxn = (SetDataTxn) txn;
                     rc.path = setDataTxn.getPath();
                     rc.stat = setData(setDataTxn.getPath(), setDataTxn
@@ -889,7 +897,7 @@ public class DataTree {
                     CheckVersionTxn checkTxn = (CheckVersionTxn) txn;
                     rc.path = checkTxn.getPath();
                     break;
-                case OpCode.multi:
+                case OpCode.multi: // 多个操作事务
                     MultiTxn multiTxn = (MultiTxn) txn ;
                     List<Txn> txns = multiTxn.getTxns();
                     rc.multiResult = new ArrayList<ProcessTxnResult>();
@@ -1042,6 +1050,11 @@ public class DataTree {
         return rc;
     }
 
+    /**
+     * 删除会话
+     * @param session
+     * @param zxid
+     */
     void killSession(long session, long zxid) {
         // the list is already removed from the ephemerals
         // so we do not have to worry about synchronizing on

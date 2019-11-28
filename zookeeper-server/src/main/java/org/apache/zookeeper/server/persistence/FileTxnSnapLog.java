@@ -216,6 +216,9 @@ public class FileTxnSnapLog {
      * this function restores the server
      * database after reading from the
      * snapshots and transaction logs
+     *
+     * 加载已经存储的所有数据（最近快照+edit）
+     *
      * @param dt the datatree to be restored
      * @param sessions the sessions to be restored
      * @param listener the playback listener to run on the
@@ -225,7 +228,7 @@ public class FileTxnSnapLog {
      */
     public long restore(DataTree dt, Map<Long, Integer> sessions,
                         PlayBackListener listener) throws IOException {
-        // 最近一个快照zxid
+        // deserializeResult：最近一个快照zxid，同时zkDataBase加载最近的一个有效快照
         long deserializeResult = snapLog.deserialize(dt, sessions);
         FileTxnLog txnLog = new FileTxnLog(dataDir);
         if (-1L == deserializeResult) {
@@ -248,6 +251,7 @@ public class FileTxnSnapLog {
             /* return a zxid of zero, since we the database is empty */
             return 0;
         }
+        // 加载edit数据到zkDataBase
         return fastForwardFromEdits(dt, sessions, listener);
     }
 
@@ -255,6 +259,9 @@ public class FileTxnSnapLog {
      * This function will fast forward the server database to have the latest
      * transactions in it.  This is the same as restore, but only reads from
      * the transaction logs and not restores from a snapshot.
+     *
+     * 加载编辑数据到zk数据库(ZkDataBase)
+     *
      * @param dt the datatree to write transactions to.
      * @param sessions the sessions to be restored.
      * @param listener the playback listener to run on the
@@ -285,11 +292,13 @@ public class FileTxnSnapLog {
                     highestZxid = hdr.getZxid();
                 }
                 try {
+                    // 处理事务
                     processTransaction(hdr,dt,sessions, itr.getTxn());
                 } catch(KeeperException.NoNodeException e) {
                    throw new IOException("Failed to process transaction type: " +
                          hdr.getType() + " error: " + e.getMessage(), e);
                 }
+                // 触发监听器
                 listener.onTxnLoaded(hdr, itr.getTxn());
                 if (!itr.next())
                     break;
@@ -333,6 +342,8 @@ public class FileTxnSnapLog {
      * process the transaction on the datatree
      *
      * TxnHeader + Record 表示完整的数据
+     *
+     *
      * @param hdr the hdr of the transaction 事务的元数据
      * @param dt the datatree to apply transaction to
      * @param sessions the sessions to be restored
@@ -342,6 +353,7 @@ public class FileTxnSnapLog {
             Map<Long, Integer> sessions, Record txn)
         throws KeeperException.NoNodeException {
         ProcessTxnResult rc;
+        // 操作事务，如果和session相关，需要操作sessions对象
         switch (hdr.getType()) { // 数据类型
         case OpCode.createSession:
             sessions.put(hdr.getClientId(),

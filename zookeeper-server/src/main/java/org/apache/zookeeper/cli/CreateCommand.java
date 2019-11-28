@@ -17,7 +17,6 @@
  */
 package org.apache.zookeeper.cli;
 
-import java.util.List;
 import org.apache.commons.cli.*;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
@@ -25,6 +24,8 @@ import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.EphemeralType;
+
+import java.util.List;
 
 /**
  * create command for cli
@@ -46,7 +47,12 @@ public class CreateCommand extends CliCommand {
         super("create", "[-s] [-e] [-c] [-t ttl] path [data] [acl]");
     }
 
-
+    /**
+     * 解析参数
+     * @param cmdArgs
+     * @return
+     * @throws CliParseException
+     */
     @Override
     public CliCommand parse(String[] cmdArgs) throws CliParseException {
         Parser parser = new PosixParser();
@@ -62,7 +68,11 @@ public class CreateCommand extends CliCommand {
         return this;
     }
 
-
+    /**
+     * 执行命令行
+     * @return
+     * @throws CliException
+     */
     @Override
     public boolean exec() throws CliException {
         boolean hasE = cl.hasOption("e");
@@ -85,7 +95,7 @@ public class CreateCommand extends CliCommand {
         if ( hasT && hasC ) {
             throw new MalformedCommandException("TTLs cannot be used with Container znodes");
         }
-
+        // 节点类型： 临时节点，临时有序节点等
         CreateMode flags;
         if(hasE && hasS) {
             flags = CreateMode.EPHEMERAL_SEQUENTIAL;
@@ -116,6 +126,7 @@ public class CreateCommand extends CliCommand {
             acl = AclParser.parse(args[3]);
         }
         try {
+            // 调用zk.create创建节点
             String newPath = hasT ? zk.create(path, data, acl, flags, new Stat(), ttl) : zk.create(path, data, acl, flags);
             err.println("Created " + newPath);
         } catch(IllegalArgumentException ex) {
