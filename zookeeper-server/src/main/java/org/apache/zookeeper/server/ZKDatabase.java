@@ -18,20 +18,6 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
-
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
@@ -55,6 +41,15 @@ import org.apache.zookeeper.server.util.SerializeUtils;
 import org.apache.zookeeper.txn.TxnHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 /**
  * This class maintains the in memory database of zookeeper
@@ -92,13 +87,19 @@ public class ZKDatabase {
      * the filetxnsnaplog that this zk database
      * maps to. There is a one to one relationship
      * between a filetxnsnaplog and zkdatabase.
+     *
+     *
+     * 创建zk数据库
+     *
      * @param snapLog the FileTxnSnapLog mapping this zkdatabase
      */
     public ZKDatabase(FileTxnSnapLog snapLog) {
+        // 初始化zk数据库
         dataTree = createDataTree();
         sessionsWithTimeouts = new ConcurrentHashMap<Long, Integer>();
         this.snapLog = snapLog;
 
+        // 设置快照大小因子
         try {
             snapshotSizeFactor = Double.parseDouble(
                 System.getProperty(SNAPSHOT_SIZE_FACTOR,
@@ -595,14 +596,20 @@ public class ZKDatabase {
         this.snapLog.close();
     }
 
+    /**
+     * 初始化配置节点
+     * @param qv
+     */
     public synchronized void initConfigInZKDatabase(QuorumVerifier qv) {
         if (qv == null) return; // only happens during tests
         try {
             if (this.dataTree.getNode(ZooDefs.CONFIG_NODE) == null) {
+                // 配置节点
                 // should only happen during upgrade
                 LOG.warn("configuration znode missing (should only happen during upgrade), creating the node");
                 this.dataTree.addConfigNode();
             }
+            // 设置配置节点的数据
             this.dataTree.setData(ZooDefs.CONFIG_NODE, qv.toString().getBytes(), -1, qv.getVersion(), Time.currentWallTime());
         } catch (NoNodeException e) {
             System.out.println("configuration node missing - should not happen");

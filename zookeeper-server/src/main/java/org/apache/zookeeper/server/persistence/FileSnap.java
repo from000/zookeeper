@@ -17,14 +17,16 @@
  */
 
 package org.apache.zookeeper.server.persistence;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import org.apache.jute.BinaryInputArchive;
+import org.apache.jute.BinaryOutputArchive;
+import org.apache.jute.InputArchive;
+import org.apache.jute.OutputArchive;
+import org.apache.zookeeper.server.DataTree;
+import org.apache.zookeeper.server.util.SerializeUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,15 +34,6 @@ import java.util.Map;
 import java.util.zip.Adler32;
 import java.util.zip.CheckedInputStream;
 import java.util.zip.CheckedOutputStream;
-
-import org.apache.jute.BinaryInputArchive;
-import org.apache.jute.BinaryOutputArchive;
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.apache.zookeeper.server.DataTree;
-import org.apache.zookeeper.server.util.SerializeUtils;
 
 /**
  * This class implements the snapshot interface.
@@ -64,6 +57,8 @@ public class FileSnap implements SnapShot {
     }
 
     /**
+     * 返回最近的快照zxid
+     *
      * deserialize a data tree from the most recent snapshot
      * @return the zxid of the snapshot
      */
@@ -72,17 +67,22 @@ public class FileSnap implements SnapShot {
         // we run through 100 snapshots (not all of them)
         // if we cannot get it running within 100 snapshots
         // we should  give up
+
+        // 找到最近的100个快照
         List<File> snapList = findNValidSnapshots(100);
         if (snapList.size() == 0) {
             return -1L;
         }
         File snap = null;
         boolean foundValid = false;
+        // 找到最近一个有效的快照
         for (int i = 0, snapListSize = snapList.size(); i < snapListSize; i++) {
             snap = snapList.get(i);
             LOG.info("Reading snapshot " + snap);
             try (InputStream snapIS = new BufferedInputStream(new FileInputStream(snap));
+                 // 校验快照
                  CheckedInputStream crcIn = new CheckedInputStream(snapIS, new Adler32())) {
+                // 反序列化
                 InputArchive ia = BinaryInputArchive.getArchive(crcIn);
                 deserialize(dt, sessions, ia);
                 long checkSum = crcIn.getChecksum().getValue();
@@ -99,6 +99,7 @@ public class FileSnap implements SnapShot {
         if (!foundValid) {
             throw new IOException("Not able to find valid snapshots in " + snapDir);
         }
+        // 最新的zxid
         dt.lastProcessedZxid = Util.getZxidFromName(snap.getName(), SNAPSHOT_FILE_PREFIX);
         return dt.lastProcessedZxid;
     }
@@ -173,10 +174,14 @@ public class FileSnap implements SnapShot {
      * find the last n snapshots. this does not have
      * any checks if the snapshot might be valid or not
      * @param n the number of most recent snapshots
+     *
+     *
+     *          取最近的快照
      * @return the last n snapshots
      * @throws IOException
      */
     public List<File> findNRecentSnapshots(int n) throws IOException {
+        // 数据zxid排序
         List<File> files = Util.sortDataDir(snapDir.listFiles(), SNAPSHOT_FILE_PREFIX, false);
         int count = 0;
         List<File> list = new ArrayList<File>();

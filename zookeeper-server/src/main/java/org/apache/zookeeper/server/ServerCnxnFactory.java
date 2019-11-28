@@ -18,19 +18,6 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.Set;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-import javax.management.JMException;
-import javax.security.auth.login.AppConfigurationEntry;
-import javax.security.auth.login.Configuration;
-import javax.security.auth.login.LoginException;
-
 import org.apache.zookeeper.Environment;
 import org.apache.zookeeper.Login;
 import org.apache.zookeeper.common.ZKConfig;
@@ -38,6 +25,18 @@ import org.apache.zookeeper.jmx.MBeanRegistry;
 import org.apache.zookeeper.server.auth.SaslServerCallbackHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.management.JMException;
+import javax.security.auth.login.AppConfigurationEntry;
+import javax.security.auth.login.Configuration;
+import javax.security.auth.login.LoginException;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public abstract class ServerCnxnFactory {
@@ -122,14 +121,23 @@ public abstract class ServerCnxnFactory {
     }
 
     public abstract void closeAll();
-    
+
+    /**
+     * 创建客户端和服务端连接对象工厂
+     * @return
+     * @throws IOException
+     */
     static public ServerCnxnFactory createFactory() throws IOException {
+        // 配置
         String serverCnxnFactoryName =
             System.getProperty(ZOOKEEPER_SERVER_CNXN_FACTORY);
+
+        // 默认是NIOServerCnxnFactory
         if (serverCnxnFactoryName == null) {
             serverCnxnFactoryName = NIOServerCnxnFactory.class.getName();
         }
         try {
+            // 反射创建对象
             ServerCnxnFactory serverCnxnFactory = (ServerCnxnFactory) Class.forName(serverCnxnFactoryName)
                     .getDeclaredConstructor().newInstance();
             LOG.info("Using {} as server connection factory", serverCnxnFactoryName);

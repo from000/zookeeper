@@ -17,23 +17,22 @@
  */
 package org.apache.zookeeper.server.quorum;
 
-import java.io.IOException;
-
-import javax.management.JMException;
-import javax.security.sasl.SaslException;
-
 import org.apache.yetus.audience.InterfaceAudience;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.jmx.ManagedUtil;
+import org.apache.zookeeper.server.DatadirCleanupManager;
 import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.ZKDatabase;
-import org.apache.zookeeper.server.DatadirCleanupManager;
 import org.apache.zookeeper.server.ZooKeeperServerMain;
 import org.apache.zookeeper.server.admin.AdminServer.AdminServerException;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog.DatadirException;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.management.JMException;
+import javax.security.sasl.SaslException;
+import java.io.IOException;
 
 /**
  *
@@ -108,15 +107,21 @@ public class QuorumPeerMain {
     protected void initializeAndRun(String[] args)
         throws ConfigException, IOException, AdminServerException
     {
+        // zookeeper配置对象
         QuorumPeerConfig config = new QuorumPeerConfig();
+        // 指定配置文件
         if (args.length == 1) {
             config.parse(args[0]);
         }
 
         // Start and schedule the the purge task
+        /**
+         * 清理zookeeper数据
+         */
         DatadirCleanupManager purgeMgr = new DatadirCleanupManager(config
                 .getDataDir(), config.getDataLogDir(), config
                 .getSnapRetainCount(), config.getPurgeInterval());
+        // 触发定时任务，定时清除数据和快照文件
         purgeMgr.start();
 
         if (args.length == 1 && config.isDistributed()) {
@@ -129,10 +134,17 @@ public class QuorumPeerMain {
         }
     }
 
+    /**
+     * 根据配置运行服务
+     * @param config
+     * @throws IOException
+     * @throws AdminServerException
+     */
     public void runFromConfig(QuorumPeerConfig config)
             throws IOException, AdminServerException
     {
       try {
+          // 注册jmx
           ManagedUtil.registerLog4jMBeans();
       } catch (JMException e) {
           LOG.warn("Unable to register log4j JMX control", e);
@@ -145,6 +157,7 @@ public class QuorumPeerMain {
 
           if (config.getClientPortAddress() != null) {
               cnxnFactory = ServerCnxnFactory.createFactory();
+              // 配置客户端连接端口
               cnxnFactory.configure(config.getClientPortAddress(),
                       config.getMaxClientCnxns(),
                       false);
@@ -152,12 +165,14 @@ public class QuorumPeerMain {
 
           if (config.getSecureClientPortAddress() != null) {
               secureCnxnFactory = ServerCnxnFactory.createFactory();
+              // 配置安全连接端口
               secureCnxnFactory.configure(config.getSecureClientPortAddress(),
                       config.getMaxClientCnxns(),
                       true);
           }
-
+          // ------------初始化当前zk服务节点的配置----------------
           quorumPeer = getQuorumPeer();
+          // 设置数据和快照操作
           quorumPeer.setTxnFactory(new FileTxnSnapLog(
                       config.getDataLogDir(),
                       config.getDataDir()));
@@ -165,7 +180,9 @@ public class QuorumPeerMain {
           quorumPeer.enableLocalSessionsUpgrading(
               config.isLocalSessionsUpgradingEnabled());
           //quorumPeer.setQuorumPeers(config.getAllMembers());
+          // 选举类型
           quorumPeer.setElectionType(config.getElectionAlg());
+          // server Id
           quorumPeer.setMyid(config.getServerId());
           quorumPeer.setTickTime(config.getTickTime());
           quorumPeer.setMinSessionTimeout(config.getMinSessionTimeout());
@@ -173,11 +190,14 @@ public class QuorumPeerMain {
           quorumPeer.setInitLimit(config.getInitLimit());
           quorumPeer.setSyncLimit(config.getSyncLimit());
           quorumPeer.setConfigFileName(config.getConfigFilename());
+
+          // 设置zk的节点数据库
           quorumPeer.setZKDatabase(new ZKDatabase(quorumPeer.getTxnFactory()));
           quorumPeer.setQuorumVerifier(config.getQuorumVerifier(), false);
           if (config.getLastSeenQuorumVerifier()!=null) {
               quorumPeer.setLastSeenQuorumVerifier(config.getLastSeenQuorumVerifier(), false);
           }
+          // 初始化zk数据库
           quorumPeer.initConfigInZKDatabase();
           quorumPeer.setCnxnFactory(cnxnFactory);
           quorumPeer.setSecureCnxnFactory(secureCnxnFactory);
@@ -200,6 +220,8 @@ public class QuorumPeerMain {
               quorumPeer.setQuorumLearnerLoginContext(config.quorumLearnerLoginContext);
           }
           quorumPeer.setQuorumCnxnThreadsSize(config.quorumCnxnThreadsSize);
+          // ----------------------------
+
           quorumPeer.initialize();
           
           quorumPeer.start();

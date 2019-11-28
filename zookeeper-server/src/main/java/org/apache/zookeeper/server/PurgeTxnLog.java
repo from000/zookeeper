@@ -18,21 +18,17 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.File;
-import java.io.FileFilter;
-import java.io.IOException;
-import java.text.DateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.persistence.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.FileFilter;
+import java.io.IOException;
+import java.text.DateFormat;
+import java.util.*;
 
 /**
  * this class is used to clean up the 
@@ -66,27 +62,38 @@ public class PurgeTxnLog {
      * during this process, these newest N snapshots or any data logs will be
      * excluded from current purging cycle.
      *
+     * 清除数据和快照
+     *
      * @param dataDir the dir that has the logs
      * @param snapDir the dir that has the snapshots
      * @param num the number of snapshots to keep
      * @throws IOException
      */
     public static void purge(File dataDir, File snapDir, int num) throws IOException {
+        // 硬编码控制快照数大于3
         if (num < 3) {
             throw new IllegalArgumentException(COUNT_ERR_MSG);
         }
-
+        // 校验并创建数据文件（事务）对象和快照文件对象
         FileTxnSnapLog txnLog = new FileTxnSnapLog(dataDir, snapDir);
-
+        // 发现最近的快照文件
         List<File> snaps = txnLog.findNRecentSnapshots(num);
         int numSnaps = snaps.size();
         if (numSnaps > 0) {
+            //  snaps.get(numSnaps - 1)最后一个可以保存的快照
+            // 清楚老的快照
             purgeOlderSnapshots(txnLog, snaps.get(numSnaps - 1));
         }
     }
 
+    /**
+     * 清除当前快照对象snapShot对应的zxid之前的数据和快照文件
+     * @param txnLog
+     * @param snapShot
+     */
     // VisibleForTesting
     static void purgeOlderSnapshots(FileTxnSnapLog txnLog, File snapShot) {
+        // 最后要保留的快照zxid
         final long leastZxidToBeRetain = Util.getZxidFromName(
                 snapShot.getName(), PREFIX_SNAPSHOT);
 
@@ -110,6 +117,7 @@ public class PurgeTxnLog {
          * calling txnLog.getSnapshotLogs().
          */
         final Set<File> retainedTxnLogs = new HashSet<File>();
+        // 添加不用保留的数据文件
         retainedTxnLogs.addAll(Arrays.asList(txnLog.getSnapshotLogs(leastZxidToBeRetain)));
 
         /**
@@ -125,6 +133,7 @@ public class PurgeTxnLog {
                 if(!f.getName().startsWith(prefix + "."))
                     return false;
                 if (retainedTxnLogs.contains(f)) {
+                    // 如果保存表示需要过滤
                     return false;
                 }
                 long fZxid = Util.getZxidFromName(f.getName(), prefix);
@@ -135,6 +144,7 @@ public class PurgeTxnLog {
             }
         }
         // add all non-excluded log files
+        // 列举需要删除的数据文件列表
         File[] logs = txnLog.getDataDir().listFiles(new MyFileFilter(PREFIX_LOG));
         List<File> files = new ArrayList<>();
         if (logs != null) {
@@ -142,6 +152,7 @@ public class PurgeTxnLog {
         }
 
         // add all non-excluded snapshot files to the deletion list
+        // 列举需要删除的快照文件列表
         File[] snapshots = txnLog.getSnapDir().listFiles(new MyFileFilter(PREFIX_SNAPSHOT));
         if (snapshots != null) {
             files.addAll(Arrays.asList(snapshots));

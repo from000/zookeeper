@@ -55,7 +55,7 @@ public class Version implements org.apache.zookeeper.version.Info {
 
     /**
      * Prints the current version, revision and build date to the standard out.
-     * 
+     *
      * @param args
      *            <ul>
      *            <li> --short - prints a short version string "1.2.3"

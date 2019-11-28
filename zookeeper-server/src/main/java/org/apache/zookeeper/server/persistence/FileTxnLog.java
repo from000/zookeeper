@@ -247,13 +247,18 @@ public class FileTxnLog implements TxnLog {
      * ascending order.
      * @param logDirList array of files
      * @param snapshotZxid return files at, or before this zxid
+     *
+     *     snapshotZxid之前的数据文件
      * @return
      */
     public static File[] getLogFiles(File[] logDirList,long snapshotZxid) {
+        // zxid降序
         List<File> files = Util.sortDataDir(logDirList, LOG_FILE_PREFIX, true);
         long logZxid = 0;
         // Find the log file that starts before or at the same time as the
         // zxid of the snapshot
+
+        // logzxid保留着小于snapshotZxid的最大zxid
         for (File f : files) {
             long fzxid = Util.getZxidFromName(f.getName(), LOG_FILE_PREFIX);
             if (fzxid > snapshotZxid) {

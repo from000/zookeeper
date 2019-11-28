@@ -223,8 +223,12 @@ public class DataTree {
      */
     private final DataNode quotaDataNode = new DataNode(new byte[0], -1L, new StatPersisted());
 
+    /**
+     * 初始化数据树
+     */
     public DataTree() {
         /* Rather than fight it, let root have an alias */
+        // root是特殊节点
         nodes.put("", root);
         nodes.put(rootZookeeper, root);
 
@@ -241,6 +245,8 @@ public class DataTree {
     /**
      * create a /zookeeper/config node for maintaining the configuration (membership and quorum system) info for
      * zookeeper
+     *
+     * 添加zookeeper配置节点
      */
     public void addConfigNode() {
         DataNode zookeeperZnode = nodes.get(procZookeeper);
@@ -252,6 +258,7 @@ public class DataTree {
 
         nodes.put(configZookeeper, new DataNode(new byte[0], -1L, new StatPersisted()));
         try {
+            // 设置权限
             // Reconfig node is access controlled by default (ZOOKEEPER-2014).
             setACL(configZookeeper, ZooDefs.Ids.READ_ACL_UNSAFE, -1);
         } catch (KeeperException.NoNodeException e) {

@@ -18,34 +18,13 @@
 
 package org.apache.zookeeper.server.quorum;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.StringReader;
-import java.io.Writer;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Map.Entry;
-
 import org.apache.yetus.audience.InterfaceAudience;
-import org.apache.zookeeper.common.ClientX509Util;
-import org.apache.zookeeper.common.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.apache.zookeeper.common.AtomicFileWritingIdiom;
 import org.apache.zookeeper.common.AtomicFileWritingIdiom.OutputStreamStatement;
 import org.apache.zookeeper.common.AtomicFileWritingIdiom.WriterStatement;
+import org.apache.zookeeper.common.ClientX509Util;
 import org.apache.zookeeper.common.PathUtils;
+import org.apache.zookeeper.common.StringUtils;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.apache.zookeeper.server.quorum.QuorumPeer.LearnerType;
 import org.apache.zookeeper.server.quorum.QuorumPeer.QuorumServer;
@@ -54,6 +33,15 @@ import org.apache.zookeeper.server.quorum.flexible.QuorumHierarchical;
 import org.apache.zookeeper.server.quorum.flexible.QuorumMaj;
 import org.apache.zookeeper.server.quorum.flexible.QuorumVerifier;
 import org.apache.zookeeper.server.util.VerifyingFileFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+
+import java.io.*;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.util.*;
+import java.util.Map.Entry;
 
 @InterfaceAudience.Public
 public class QuorumPeerConfig {
@@ -125,6 +113,8 @@ public class QuorumPeerConfig {
     }
 
     /**
+     * 解析zookeeper配置文件
+     *
      * Parse a ZooKeeper configuration file
      * @param path the patch of the configuration file
      * @throws ConfigException error processing configuration
@@ -141,12 +131,13 @@ public class QuorumPeerConfig {
             Properties cfg = new Properties();
             FileInputStream in = new FileInputStream(configFile);
             try {
+                // 配置加载到属性对象中
                 cfg.load(in);
                 configFileStr = path;
             } finally {
                 in.close();
             }
-            
+            // 解析属性
             parseProperties(cfg);
         } catch (IOException e) {
             throw new ConfigException("Error processing " + path, e);
@@ -173,13 +164,15 @@ public class QuorumPeerConfig {
                } finally {
                    inConfig.close();
                }
+               // 设置zookeeper配置
                setupQuorumPeerConfig(dynamicCfg, false);
 
            } catch (IOException e) {
                throw new ConfigException("Error processing " + dynamicConfigFileStr, e);
            } catch (IllegalArgumentException e) {
                throw new ConfigException("Error processing " + dynamicConfigFileStr, e);
-           }        
+           }
+           // 暂时不知
            File nextDynamicConfigFile = new File(configFileStr + nextDynamicConfigFileSuffix);
            if (nextDynamicConfigFile.exists()) {
                try {           
@@ -211,6 +204,12 @@ public class QuorumPeerConfig {
     // "zoo.cfg.dynamic.1001" returns version of hex number "0x1001".
     // If a dynamic file name doesn't have any version at the end of file,
     // e.g. "zoo.cfg.dynamic", it returns null.
+
+    /**
+     * 根据动态配置文件获取版本(16进制)
+     * @param filename
+     * @return
+     */
     public static String getVersionFromFilename(String filename) {
         int i = filename.lastIndexOf('.');
         if(i < 0 || i >= filename.length())
@@ -226,6 +225,7 @@ public class QuorumPeerConfig {
     }
 
     /**
+     * 解析属性对象，修改配置属性
      * Parse config from a Properties.
      * @param zkProp Properties to parse from.
      * @throws IOException
@@ -582,8 +582,14 @@ public class QuorumPeerConfig {
            }
        }                   
     }
-    
-    
+
+    /**
+     * 动态配置分为： Hierarchical 和 Maj 两种模式
+     * @param dynamicConfigProp
+     * @param isHierarchical
+     * @return
+     * @throws ConfigException
+     */
     private static QuorumVerifier createQuorumVerifier(Properties dynamicConfigProp, boolean isHierarchical) throws ConfigException{
        if(isHierarchical){
             return new QuorumHierarchical(dynamicConfigProp);
@@ -598,10 +604,15 @@ public class QuorumPeerConfig {
 
     void setupQuorumPeerConfig(Properties prop, boolean configBackwardCompatibilityMode)
             throws IOException, ConfigException {
+        // 解析动态参数
         quorumVerifier = parseDynamicConfig(prop, electionAlg, true, configBackwardCompatibilityMode);
+        // 解析serverId
         setupMyId();
+        // 设置客户端端口
         setupClientPort();
+        // 设置学习者类型
         setupPeerType();
+        // 检查参数的合法性
         checkValidity();
     }
 
@@ -615,18 +626,19 @@ public class QuorumPeerConfig {
     public static QuorumVerifier parseDynamicConfig(Properties dynamicConfigProp, int eAlg, boolean warnings,
 	   boolean configBackwardCompatibilityMode) throws IOException, ConfigException {
        boolean isHierarchical = false;
+       // Hierarchical投票系统： 不同服务器的投票具有不同的权重，服务器分为投票组
         for (Entry<Object, Object> entry : dynamicConfigProp.entrySet()) {
             String key = entry.getKey().toString().trim();                    
             if (key.startsWith("group") || key.startsWith("weight")) {
                isHierarchical = true;
-            } else if (!configBackwardCompatibilityMode && !key.startsWith("server.") && !key.equals("version")){ 
+            } else if (!configBackwardCompatibilityMode && !key.startsWith("server.") && !key.equals("version")){
                LOG.info(dynamicConfigProp.toString());
                throw new ConfigException("Unrecognised parameter: " + key);                
             }
         }
-        
+        // 创建动态参数校验器
         QuorumVerifier qv = createQuorumVerifier(dynamicConfigProp, isHierarchical);
-               
+        // 校验参数
         int numParticipators = qv.getVotingMembers().size();
         int numObservers = qv.getObservingMembers().size();
         if (numParticipators == 0) {
@@ -670,6 +682,10 @@ public class QuorumPeerConfig {
         return qv;
     }
 
+    /**
+     * 读取服务id
+     * @throws IOException
+     */
     private void setupMyId() throws IOException {
         File myIdFile = new File(dataDir, "myid");
         // standalone server doesn't need myid file.
@@ -692,11 +708,16 @@ public class QuorumPeerConfig {
         }
     }
 
+    /**
+     * 设置客户端端口
+     * @throws ConfigException
+     */
     private void setupClientPort() throws ConfigException {
         if (serverId == UNSET_SERVERID) {
             return;
         }
         QuorumServer qs = quorumVerifier.getAllMembers().get(serverId);
+        // 校验客户端端口
         if (clientPortAddress != null && qs != null && qs.clientAddr != null) {
             if ((!clientPortAddress.getAddress().isAnyLocalAddress()
                     && !clientPortAddress.equals(qs.clientAddr)) ||

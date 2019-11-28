@@ -17,35 +17,6 @@
  */
 package org.apache.zookeeper.server.quorum;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.io.Writer;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-
-import javax.security.sasl.SaslException;
-
 import org.apache.zookeeper.KeeperException.BadArgumentsException;
 import org.apache.zookeeper.common.AtomicFileWritingIdiom;
 import org.apache.zookeeper.common.AtomicFileWritingIdiom.WriterStatement;
@@ -58,23 +29,26 @@ import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.ZKDatabase;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.apache.zookeeper.server.ZooKeeperThread;
-import org.apache.zookeeper.server.quorum.auth.QuorumAuth;
-import org.apache.zookeeper.server.quorum.auth.QuorumAuthLearner;
-import org.apache.zookeeper.server.quorum.auth.QuorumAuthServer;
-import org.apache.zookeeper.server.quorum.auth.SaslQuorumAuthLearner;
-import org.apache.zookeeper.server.quorum.auth.SaslQuorumAuthServer;
-import org.apache.zookeeper.server.quorum.auth.NullQuorumAuthLearner;
-import org.apache.zookeeper.server.quorum.auth.NullQuorumAuthServer;
 import org.apache.zookeeper.server.admin.AdminServer;
 import org.apache.zookeeper.server.admin.AdminServer.AdminServerException;
 import org.apache.zookeeper.server.admin.AdminServerFactory;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
+import org.apache.zookeeper.server.quorum.auth.*;
 import org.apache.zookeeper.server.quorum.flexible.QuorumMaj;
 import org.apache.zookeeper.server.quorum.flexible.QuorumVerifier;
 import org.apache.zookeeper.server.util.ZxidUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.security.sasl.SaslException;
+import java.io.*;
+import java.net.*;
+import java.nio.ByteBuffer;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * This class manages the quorum protocol. There are three states this server
@@ -876,9 +850,15 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         adminServer = AdminServerFactory.createAdminServer();
     }
 
+    /**
+     * 初始化peer,主要是认证服务器和学习者服务器
+     * @throws SaslException
+     */
     public void initialize() throws SaslException {
         // init quorum auth server & learner
+
         if (isQuorumSaslAuthEnabled()) {
+            // 认证服务器
             Set<String> authzHosts = new HashSet<String>();
             for (QuorumServer qs : getView().values()) {
                 authzHosts.add(qs.hostname);
@@ -899,9 +879,11 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
 
     @Override
     public synchronized void start() {
+        // 如果不在peer列表中，抛异常
         if (!getView().containsKey(myid)) {
             throw new RuntimeException("My id " + myid + " not in the peer list");
          }
+
         loadDataBase();
         startServerCnxnFactory();
         try {

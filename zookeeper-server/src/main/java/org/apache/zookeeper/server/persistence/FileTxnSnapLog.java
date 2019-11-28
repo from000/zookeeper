@@ -18,13 +18,6 @@
 
 package org.apache.zookeeper.server.persistence;
 
-import java.io.File;
-import java.io.FilenameFilter;
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.Code;
@@ -39,6 +32,13 @@ import org.apache.zookeeper.txn.CreateSessionTxn;
 import org.apache.zookeeper.txn.TxnHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This is a helper class
@@ -82,6 +82,9 @@ public class FileTxnSnapLog {
     }
 
     /**
+     *
+     * 创建数据文件（事务）对象和快照文件对象
+     *
      * the constructor which takes the datadir and
      * snapdir.
      * @param dataDir the transaction directory
@@ -101,7 +104,7 @@ public class FileTxnSnapLog {
 
         trustEmptySnapshot = Boolean.getBoolean(ZOOKEEPER_SNAPSHOT_TRUST_EMPTY);
         LOG.info(ZOOKEEPER_SNAPSHOT_TRUST_EMPTY + " : " + trustEmptySnapshot);
-
+        // 自动创建数据目录和快照目录
         if (!this.dataDir.exists()) {
             if (!enableAutocreate) {
                 throw new DatadirException("Missing data directory "
@@ -142,11 +145,15 @@ public class FileTxnSnapLog {
 
         // check content of transaction log and snapshot dirs if they are two different directories
         // See ZOOKEEPER-2967 for more details
+        /**
+         * 如果数据文件目录和快照文件目录不一致，需要校验文件列表
+         */
         if(!this.dataDir.getPath().equals(this.snapDir.getPath())){
             checkLogDir();
             checkSnapDir();
         }
 
+        // 创建数据文件（事务）对象和快照文件对象
         txnLog = new FileTxnLog(this.dataDir);
         snapLog = new FileSnap(this.snapDir);
     }
@@ -155,6 +162,10 @@ public class FileTxnSnapLog {
         txnLog.setServerStats(serverStats);
     }
 
+    /**
+     * 校验日志文件目录
+     * @throws LogDirContentCheckException
+     */
     private void checkLogDir() throws LogDirContentCheckException {
         File[] files = this.dataDir.listFiles(new FilenameFilter() {
             @Override
@@ -167,6 +178,10 @@ public class FileTxnSnapLog {
         }
     }
 
+    /**
+     * 校验快照文件目录
+     * @throws SnapDirContentCheckException
+     */
     private void checkSnapDir() throws SnapDirContentCheckException {
         File[] files = this.snapDir.listFiles(new FilenameFilter() {
             @Override
@@ -210,11 +225,14 @@ public class FileTxnSnapLog {
      */
     public long restore(DataTree dt, Map<Long, Integer> sessions,
                         PlayBackListener listener) throws IOException {
+        // 最近一个快照zxid
         long deserializeResult = snapLog.deserialize(dt, sessions);
         FileTxnLog txnLog = new FileTxnLog(dataDir);
         if (-1L == deserializeResult) {
             /* this means that we couldn't find any snapshot, so we need to
              * initialize an empty database (reported in ZOOKEEPER-2325) */
+
+            // 如果快照不存在就初始化一个空的zk数据库
             if (txnLog.getLastLoggedZxid() != -1) {
                 // ZOOKEEPER-3056: provides an escape hatch for users upgrading
                 // from old versions of zookeeper (3.4.x, pre 3.5.3).
@@ -246,6 +264,7 @@ public class FileTxnSnapLog {
      */
     public long fastForwardFromEdits(DataTree dt, Map<Long, Integer> sessions,
                                      PlayBackListener listener) throws IOException {
+        // 读快照的下一个数据文件列表（即正在edit的文件列表）
         TxnIterator itr = txnLog.read(dt.lastProcessedZxid+1);
         long highestZxid = dt.lastProcessedZxid;
         TxnHeader hdr;
@@ -258,6 +277,7 @@ public class FileTxnSnapLog {
                     //empty logs
                     return dt.lastProcessedZxid;
                 }
+                // 如果数据文件的zxid小于最近的快照zxid
                 if (hdr.getZxid() < highestZxid && highestZxid != 0) {
                     LOG.error("{}(highestZxid) > {}(next log) for type {}",
                             highestZxid, hdr.getZxid(), hdr.getType());
@@ -311,7 +331,9 @@ public class FileTxnSnapLog {
     
     /**
      * process the transaction on the datatree
-     * @param hdr the hdr of the transaction
+     *
+     * TxnHeader + Record 表示完整的数据
+     * @param hdr the hdr of the transaction 事务的元数据
      * @param dt the datatree to apply transaction to
      * @param sessions the sessions to be restored
      * @param txn the transaction to be applied
@@ -320,7 +342,7 @@ public class FileTxnSnapLog {
             Map<Long, Integer> sessions, Record txn)
         throws KeeperException.NoNodeException {
         ProcessTxnResult rc;
-        switch (hdr.getType()) {
+        switch (hdr.getType()) { // 数据类型
         case OpCode.createSession:
             sessions.put(hdr.getClientId(),
                     ((CreateSessionTxn) txn).getTimeOut());
