@@ -19,13 +19,17 @@
 
 package org.apache.zookeeper.proto;
 
+/**
+ * 用于表示响应的状态，并没有携带数据
+ */
+
 import org.apache.jute.*;
 import org.apache.yetus.audience.InterfaceAudience;
 @InterfaceAudience.Public
 public class ReplyHeader implements Record {
   private int xid;
   private long zxid;
-  private int err;
+  private int err;  // err!=0表示响应客户端出错
   public ReplyHeader() {
   }
   public ReplyHeader(

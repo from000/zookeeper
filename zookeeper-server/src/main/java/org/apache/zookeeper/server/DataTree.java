@@ -71,6 +71,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * This class maintains the tree data structure. It doesn't have any networking
  * or client connection code in it so that it can be tested in a stand alone
  * way.
+ *
+ *
+ * 容器节点：3.6.0之后增加
+ * 容器节点是专门为了应用于leader选举，分布式锁等而添加的特殊节点形式。当容器节点的最后一个子节点被删除，容器节点就会被列入zookeeper服务将要删除的节点行列。
+ * 当在容器节点下创建子节点时，需要捕获NoNodeException异常，当容器节点不存在是先执行容器节点的创建。
  * <p>
  * The tree maintains two parallel data structures: a hashtable that maps from
  * full paths to DataNodes and a tree of DataNodes. All accesses to a path is
@@ -294,6 +299,11 @@ public class DataTree {
         to.setEphemeralOwner(from.getEphemeralOwner());
     }
 
+    /**
+     * DateTree拷贝state信息
+     * @param from
+     * @param to
+     */
     static public void copyStat(Stat from, Stat to) {
         to.setAversion(from.getAversion());
         to.setCtime(from.getCtime());

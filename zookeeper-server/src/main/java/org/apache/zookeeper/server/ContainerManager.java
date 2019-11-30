@@ -35,6 +35,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * checks container nodes that have a cversion > 0 and have no children. A
  * delete is attempted on the node. The result of the delete is unimportant.
  * If the proposal fails or the container node is not empty there's no harm.
+ *
+ *
+ * 管理zk节点的清除容器，只能运行在leader节点上
  */
 public class ContainerManager {
     private static final Logger LOG = LoggerFactory.getLogger(ContainerManager.class);
@@ -68,13 +71,17 @@ public class ContainerManager {
     /**
      * start/restart the timer the runs the check. Can safely be called
      * multiple times.
+     *
+     *
      */
     public void start() {
         if (task.get() == null) {
+            // 检查并清除无用的节点task
             TimerTask timerTask = new TimerTask() {
                 @Override
                 public void run() {
                     try {
+
                         checkContainers();
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
@@ -85,6 +92,7 @@ public class ContainerManager {
                     }
                 }
             };
+            // 定时执行
             if (task.compareAndSet(null, timerTask)) {
                 timer.scheduleAtFixedRate(timerTask, checkIntervalMs,
                         checkIntervalMs);
@@ -113,17 +121,20 @@ public class ContainerManager {
             long startMs = Time.currentElapsedTime();
 
             ByteBuffer path = ByteBuffer.wrap(containerPath.getBytes());
+            // 删除节点请求
             Request request = new Request(null, 0, 0,
                     ZooDefs.OpCode.deleteContainer, path, null);
             try {
                 LOG.info("Attempting to delete candidate container: {}",
                         containerPath);
+                // 处理删除节点请求
                 requestProcessor.processRequest(request);
             } catch (Exception e) {
                 LOG.error("Could not delete container: {}",
                         containerPath, e);
             }
 
+            // 等待处理一下个路径
             long elapsedMs = Time.currentElapsedTime() - startMs;
             long waitMs = minIntervalMs - elapsedMs;
             if (waitMs > 0) {
@@ -138,8 +149,14 @@ public class ContainerManager {
     }
 
     // VisibleForTesting
+
+    /**
+     * 准备清除节点
+     * @return
+     */
     protected Collection<String> getCandidates() {
         Set<String> candidates = new HashSet<String>();
+        // 容器节点中没有子节点
         for (String containerPath : zkDb.getDataTree().getContainers()) {
             DataNode node = zkDb.getDataTree().getNode(containerPath);
             /*
@@ -153,11 +170,13 @@ public class ContainerManager {
                 candidates.add(containerPath);
             }
         }
+        // 过期节点
         for (String ttlPath : zkDb.getDataTree().getTtls()) {
             DataNode node = zkDb.getDataTree().getNode(ttlPath);
             if (node != null) {
                 Set<String> children = node.getChildren();
                 if ((children == null) || (children.size() == 0)) {
+
                     if ( EphemeralType.get(node.stat.getEphemeralOwner()) == EphemeralType.TTL ) {
                         long elapsed = getElapsed(node);
                         long ttl = EphemeralType.TTL.getValue(node.stat.getEphemeralOwner());

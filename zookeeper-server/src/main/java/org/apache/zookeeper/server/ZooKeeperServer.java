@@ -547,6 +547,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     }
 
     /**
+     * 关闭zk服务
+     *
      * Shut down the server instance
      * @param fullyShutDown true if another server using the same database will not replace this one in the same process
      */
@@ -570,6 +572,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         }
 
         if (zkDb != null) {
+            // 如果fullyShutDown=true内存中的数据,重新创建一个新的zkDataBase
+            //  fullyShutDown=false，将最新的数据导入到zkDataBase，即内存中最近操作的将抛弃
             if (fullyShutDown) {
                 zkDb.clear();
             } else {
@@ -580,6 +584,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                 //    cleared anyway before loading the snapshot
                 try {
                     //This will fast forward the database to the latest recorded transactions
+
+
                     zkDb.fastForwardDataBase();
                 } catch (IOException e) {
                     LOG.error("Error updating DB", e);

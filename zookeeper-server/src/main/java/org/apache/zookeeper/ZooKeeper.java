@@ -1620,18 +1620,23 @@ public class ZooKeeper implements AutoCloseable {
             CreateMode createMode, Stat stat, long ttl)
             throws KeeperException, InterruptedException {
         final String clientPath = path;
+        // 校验路径
         PathUtils.validatePath(clientPath, createMode.isSequential());
+        // 校验ttl
         EphemeralType.validateTTL(createMode, ttl);
-
+        // 组合chroot路径
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
         setCreateHeader(createMode, h);
         Create2Response response = new Create2Response();
+        // 简单校验acl
         if (acl != null && acl.size() == 0) {
             throw new KeeperException.InvalidACLException();
         }
+        // record + header 组成完整数据
         Record record = makeCreateRecord(createMode, serverPath, data, acl, ttl);
+        // 处理请求并返回结果
         ReplyHeader r = cnxn.submitRequest(h, record, response, null);
         if (r.getErr() != 0) {
             throw KeeperException.create(KeeperException.Code.get(r.getErr()),
@@ -1640,6 +1645,9 @@ public class ZooKeeper implements AutoCloseable {
         if (stat != null) {
             DataTree.copyStat(response.getStat(), stat);
         }
+        /**
+         * 创建成功之后，返回路径
+         */
         if (cnxn.chrootPath == null) {
             return response.getPath();
         } else {
@@ -1647,6 +1655,11 @@ public class ZooKeeper implements AutoCloseable {
         }
     }
 
+    /**
+     * 设置create请求头
+     * @param createMode
+     * @param h
+     */
     private void setCreateHeader(CreateMode createMode, RequestHeader h) {
         if (createMode.isTTL()) {
             h.setType(ZooDefs.OpCode.createTTL);
@@ -1655,6 +1668,15 @@ public class ZooKeeper implements AutoCloseable {
         }
     }
 
+    /**
+     * 创建create record
+     * @param createMode
+     * @param serverPath
+     * @param data
+     * @param acl
+     * @param ttl
+     * @return
+     */
     private Record makeCreateRecord(CreateMode createMode, String serverPath, byte[] data, List<ACL> acl, long ttl) {
         Record record;
         if (createMode.isTTL()) {
@@ -2110,14 +2132,16 @@ public class ZooKeeper implements AutoCloseable {
         throws KeeperException, InterruptedException
      {
         final String clientPath = path;
+        // 校验路径
         PathUtils.validatePath(clientPath);
 
         // the watch contains the un-chroot path
+         // 路径watcher注册器
         WatchRegistration wcb = null;
         if (watcher != null) {
             wcb = new DataWatchRegistration(watcher, clientPath);
         }
-
+        // 拼接chroot
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
@@ -2126,6 +2150,8 @@ public class ZooKeeper implements AutoCloseable {
         request.setPath(serverPath);
         request.setWatch(watcher != null);
         GetDataResponse response = new GetDataResponse();
+        // get响应数据放到response对象中
+         // 发起请求
         ReplyHeader r = cnxn.submitRequest(h, request, response, wcb);
         if (r.getErr() != 0) {
             throw KeeperException.create(KeeperException.Code.get(r.getErr()),
@@ -2147,6 +2173,8 @@ public class ZooKeeper implements AutoCloseable {
      * <p>
      * A KeeperException with error code KeeperException.NoNode will be thrown
      * if no node with the given path exists.
+     *
+     * zk获取路径对应的数据
      *
      * @param path the given path
      * @param watch whether need to watch this node
@@ -2866,6 +2894,9 @@ public class ZooKeeper implements AutoCloseable {
      * For the given znode path, removes all the registered watchers of given
      * watcherType.
      *
+     *
+     * 移除某路径所有的watcher
+     *
      * <p>
      * A successful call guarantees that, the removed watchers won't be
      * triggered.
@@ -2915,12 +2946,24 @@ public class ZooKeeper implements AutoCloseable {
         }
     }
 
+    /**
+     *
+     * @param opCode
+     * @param path
+     * @param watcher
+     * @param watcherType
+     * @param local
+     * @throws InterruptedException
+     * @throws KeeperException
+     */
     private void removeWatches(int opCode, String path, Watcher watcher,
             WatcherType watcherType, boolean local)
             throws InterruptedException, KeeperException {
         PathUtils.validatePath(path);
         final String clientPath = path;
+        // 拼接chroot路径
         final String serverPath = prependChroot(clientPath);
+        // watcher移除对象
         WatchDeregistration wcb = new WatchDeregistration(clientPath, watcher,
                 watcherType, local, watchManager);
 

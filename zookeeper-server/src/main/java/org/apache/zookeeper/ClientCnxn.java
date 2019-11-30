@@ -19,44 +19,10 @@
 package org.apache.zookeeper;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.ConnectException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.net.SocketException;
-import java.nio.ByteBuffer;
-import java.util.HashSet;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-import java.util.Map.Entry;
-import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.LinkedBlockingQueue;
-
-import javax.security.auth.login.LoginException;
-import javax.security.sasl.SaslException;
-
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.Record;
-import org.apache.zookeeper.AsyncCallback.ACLCallback;
-import org.apache.zookeeper.AsyncCallback.Children2Callback;
-import org.apache.zookeeper.AsyncCallback.ChildrenCallback;
-import org.apache.zookeeper.AsyncCallback.Create2Callback;
-import org.apache.zookeeper.AsyncCallback.DataCallback;
-import org.apache.zookeeper.AsyncCallback.MultiCallback;
-import org.apache.zookeeper.AsyncCallback.StatCallback;
-import org.apache.zookeeper.AsyncCallback.StringCallback;
-import org.apache.zookeeper.AsyncCallback.VoidCallback;
+import org.apache.zookeeper.AsyncCallback.*;
 import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.OpResult.ErrorResult;
 import org.apache.zookeeper.Watcher.Event;
@@ -65,32 +31,31 @@ import org.apache.zookeeper.Watcher.Event.KeeperState;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.ZooKeeper.States;
 import org.apache.zookeeper.ZooKeeper.WatchRegistration;
-import org.apache.zookeeper.client.ZKClientConfig;
 import org.apache.zookeeper.client.HostProvider;
+import org.apache.zookeeper.client.ZKClientConfig;
 import org.apache.zookeeper.client.ZooKeeperSaslClient;
 import org.apache.zookeeper.common.Time;
-import org.apache.zookeeper.proto.AuthPacket;
-import org.apache.zookeeper.proto.ConnectRequest;
-import org.apache.zookeeper.proto.Create2Response;
-import org.apache.zookeeper.proto.CreateResponse;
-import org.apache.zookeeper.proto.ExistsResponse;
-import org.apache.zookeeper.proto.GetACLResponse;
-import org.apache.zookeeper.proto.GetChildren2Response;
-import org.apache.zookeeper.proto.GetChildrenResponse;
-import org.apache.zookeeper.proto.GetDataResponse;
-import org.apache.zookeeper.proto.GetSASLRequest;
-import org.apache.zookeeper.proto.ReplyHeader;
-import org.apache.zookeeper.proto.RequestHeader;
-import org.apache.zookeeper.proto.SetACLResponse;
-import org.apache.zookeeper.proto.SetDataResponse;
-import org.apache.zookeeper.proto.SetWatches;
-import org.apache.zookeeper.proto.WatcherEvent;
+import org.apache.zookeeper.proto.*;
 import org.apache.zookeeper.server.ByteBufferInputStream;
 import org.apache.zookeeper.server.ZooKeeperThread;
 import org.apache.zookeeper.server.ZooTrace;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+
+import javax.security.auth.login.LoginException;
+import javax.security.sasl.SaslException;
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.*;
+import java.nio.ByteBuffer;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * This class manages the socket i/o for the client. ClientCnxn maintains a list
@@ -455,6 +420,11 @@ public class ClientCnxn {
             queueEvent(event, null);
         }
 
+        /**
+         * 封装event和watcher对象，并放入等待队列中
+         * @param event
+         * @param materializedWatchers
+         */
         private void queueEvent(WatchedEvent event,
                 Set<Watcher> materializedWatchers) {
             if (event.getType() == EventType.None
@@ -465,6 +435,8 @@ public class ClientCnxn {
             final Set<Watcher> watchers;
             if (materializedWatchers == null) {
                 // materialize the watchers based on the event
+
+                // 将事件转为watcher对象
                 watchers = watcher.materialize(event.getState(),
                         event.getType(), event.getPath());
             } else {
@@ -473,6 +445,8 @@ public class ClientCnxn {
             }
             WatcherSetEventPair pair = new WatcherSetEventPair(watchers, event);
             // queue the pair (watch set & event) for later processing
+
+            // 放入等待事件处理队列中
             waitingEvents.add(pair);
         }
 
@@ -722,6 +696,13 @@ public class ClientCnxn {
         }
     }
 
+    /**
+     * 使用线程处理事件
+     * @param clientPath
+     * @param err
+     * @param materializedWatchers
+     * @param eventType
+     */
     void queueEvent(String clientPath, int err,
             Set<Watcher> materializedWatchers, EventType eventType) {
         KeeperState sessionState = KeeperState.SyncConnected;
@@ -738,6 +719,10 @@ public class ClientCnxn {
         eventThread.queueCallback(cb, rc, path, ctx);
     }
 
+    /**
+     * 将异常state封装成packet对象
+     * @param p
+     */
     private void conLossPacket(Packet p) {
         if (p.replyHeader == null) {
             return;
@@ -1272,6 +1257,9 @@ public class ClientCnxn {
                            + Long.toHexString(getSessionId()));
         }
 
+        /**
+         * 清除数据并停止状态更新
+         */
         private void cleanAndNotifyState() {
             cleanup();
             if (state.isAlive()) {
@@ -1334,8 +1322,13 @@ public class ClientCnxn {
             }
         }
 
+        /**
+         *
+         */
         private void cleanup() {
+            // socket相关信息清除
             clientCnxnSocket.cleanup();
+            // 处理等待队列
             synchronized (pendingQueue) {
                 for (Packet p : pendingQueue) {
                     conLossPacket(p);
@@ -1345,6 +1338,7 @@ public class ClientCnxn {
             // We can't call outgoingQueue.clear() here because
             // between iterating and clear up there might be new
             // packets added in queuePacket().
+            // 处理outgoingQueue队列
             Iterator<Packet> iter = outgoingQueue.iterator();
             while (iter.hasNext()) {
                 Packet p = iter.next();
@@ -1506,6 +1500,15 @@ public class ClientCnxn {
         return xid++;
     }
 
+    /**
+     * 提交请求
+     * @param h
+     * @param request
+     * @param response
+     * @param watchRegistration
+     * @return
+     * @throws InterruptedException
+     */
     public ReplyHeader submitRequest(RequestHeader h, Record request,
             Record response, WatchRegistration watchRegistration)
             throws InterruptedException {
@@ -1517,9 +1520,11 @@ public class ClientCnxn {
             WatchDeregistration watchDeregistration)
             throws InterruptedException {
         ReplyHeader r = new ReplyHeader();
+        // 将packet放入队列中
         Packet packet = queuePacket(h, r, request, response, null, null, null,
                 null, watchRegistration, watchDeregistration);
         synchronized (packet) {
+            // 如果reequestTimeout<0表示一直等待处理结束
             if (requestTimeout > 0) {
                 // Wait for request completion with timeout
                 waitForPacketFinish(r, packet);
@@ -1530,6 +1535,7 @@ public class ClientCnxn {
                 }
             }
         }
+        // 如果处理超时
         if (r.getErr() == Code.REQUESTTIMEOUT.intValue()) {
             sendThread.cleanAndNotifyState();
         }
@@ -1538,6 +1544,8 @@ public class ClientCnxn {
 
     /**
      * Wait for request completion with timeout.
+     *
+     * 等待packet处理结束
      */
     private void waitForPacketFinish(ReplyHeader r, Packet packet)
             throws InterruptedException {
@@ -1582,6 +1590,20 @@ public class ClientCnxn {
                 ctx, watchRegistration, null);
     }
 
+    /**
+     * 将请求封装成packet对象，并访问队列中
+     * @param h
+     * @param r
+     * @param request
+     * @param response
+     * @param cb
+     * @param clientPath
+     * @param serverPath
+     * @param ctx
+     * @param watchRegistration
+     * @param watchDeregistration
+     * @return
+     */
     public Packet queuePacket(RequestHeader h, ReplyHeader r, Record request,
             Record response, AsyncCallback cb, String clientPath,
             String serverPath, Object ctx, WatchRegistration watchRegistration,
@@ -1591,6 +1613,7 @@ public class ClientCnxn {
         // Note that we do not generate the Xid for the packet yet. It is
         // generated later at send-time, by an implementation of ClientCnxnSocket::doIO(),
         // where the packet is actually sent.
+        // 组装packet对象
         packet = new Packet(h, r, request, response, watchRegistration);
         packet.cb = cb;
         packet.ctx = ctx;
@@ -1602,6 +1625,7 @@ public class ClientCnxn {
         // 2. synchronized against each packet. So if a closeSession packet is added,
         // later packet will be notified.
         synchronized (state) {
+            // 服务状态不可用
             if (!state.isAlive() || closing) {
                 conLossPacket(packet);
             } else {
@@ -1610,6 +1634,7 @@ public class ClientCnxn {
                 if (h.getType() == OpCode.closeSession) {
                     closing = true;
                 }
+                // 将有效的请求(packet)放入到outgoingQueue队列中
                 outgoingQueue.add(packet);
             }
         }

@@ -18,12 +18,6 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.IOException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import javax.management.JMException;
-
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.jmx.ManagedUtil;
 import org.apache.zookeeper.server.admin.AdminServer;
@@ -35,8 +29,15 @@ import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.management.JMException;
+import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 /**
  * This class starts and runs a standalone ZooKeeperServer.
+ *
+ * 单机启动的主类
  */
 @InterfaceAudience.Public
 public class ZooKeeperServerMain {
@@ -90,19 +91,21 @@ public class ZooKeeperServerMain {
     protected void initializeAndRun(String[] args)
         throws ConfigException, IOException, AdminServerException
     {
+        // 注册jmx
         try {
             ManagedUtil.registerLog4jMBeans();
         } catch (JMException e) {
             LOG.warn("Unable to register log4j JMX control", e);
         }
 
+        // 服务配置
         ServerConfig config = new ServerConfig();
         if (args.length == 1) {
             config.parse(args[0]);
         } else {
             config.parse(args);
         }
-
+        // 根据配置运行服务
         runFromConfig(config);
     }
 
@@ -129,15 +132,20 @@ public class ZooKeeperServerMain {
             // Registers shutdown handler which will be used to know the
             // server error or shutdown state changes.
             final CountDownLatch shutdownLatch = new CountDownLatch(1);
+            // 服务结束钩子
             zkServer.registerServerShutdownHandler(
                     new ZooKeeperServerShutdownHandler(shutdownLatch));
 
             // Start Admin server
+            // 创建admin服务，用于接收请求(创建jetty服务)
             adminServer = AdminServerFactory.createAdminServer();
+            // 设置zookeeper服务
             adminServer.setZooKeeperServer(zkServer);
+            // 服务启动，监听客户端请求
             adminServer.start();
 
             boolean needStartZKServer = true;
+            // ------------创建客户端连接对象-----------
             if (config.getClientPortAddress() != null) {
                 cnxnFactory = ServerCnxnFactory.createFactory();
                 cnxnFactory.configure(config.getClientPortAddress(), config.getMaxClientCnxns(), false);
@@ -151,6 +159,7 @@ public class ZooKeeperServerMain {
                 secureCnxnFactory.startup(zkServer, needStartZKServer);
             }
 
+            // 定时清除容器节点
             containerManager = new ContainerManager(zkServer.getZKDatabase(), zkServer.firstProcessor,
                     Integer.getInteger("znode.container.checkIntervalMs", (int) TimeUnit.MINUTES.toMillis(1)),
                     Integer.getInteger("znode.container.maxPerMinute", 10000)
@@ -159,8 +168,11 @@ public class ZooKeeperServerMain {
 
             // Watch status of ZooKeeper server. It will do a graceful shutdown
             // if the server is not running or hits an internal error.
+
+            // 根据ZooKeeperServerShutdownHandler处理逻辑可知，只有在服务运行不正常的情况下，才会往下执行
             shutdownLatch.await();
 
+            // 关闭服务
             shutdown();
 
             if (cnxnFactory != null) {
@@ -170,6 +182,7 @@ public class ZooKeeperServerMain {
                 secureCnxnFactory.join();
             }
             if (zkServer.canShutdown()) {
+                //完全清楚zkDataBase
                 zkServer.shutdown(true);
             }
         } catch (InterruptedException e) {
@@ -184,18 +197,24 @@ public class ZooKeeperServerMain {
 
     /**
      * Shutdown the serving instance
+     *
+     * 关闭服务实例
      */
     protected void shutdown() {
+        // 容器管理器关闭，主要是停止定时任务
         if (containerManager != null) {
             containerManager.stop();
         }
+        // 关闭客户端连接
         if (cnxnFactory != null) {
             cnxnFactory.shutdown();
         }
+        // 关闭安全的客户端连接
         if (secureCnxnFactory != null) {
             secureCnxnFactory.shutdown();
         }
         try {
+            // 关闭admin服务
             if (adminServer != null) {
                 adminServer.shutdown();
             }

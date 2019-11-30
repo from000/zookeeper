@@ -809,6 +809,10 @@ public class QuorumPeerConfig {
 
     public long getServerId() { return serverId; }
 
+    /**
+     * 是否是集群模式
+     * @return
+     */
     public boolean isDistributed() {
         return quorumVerifier!=null && (!standaloneEnabled || quorumVerifier.getVotingMembers().size() > 1);
     }

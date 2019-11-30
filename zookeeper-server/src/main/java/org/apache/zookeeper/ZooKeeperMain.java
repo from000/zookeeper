@@ -40,6 +40,8 @@ import java.util.regex.Pattern;
 /**
  * The command line client to ZooKeeper.
  *
+ * 命令行的客户端触发
+ *
  */
 @InterfaceAudience.Public
 public class ZooKeeperMain {
@@ -157,6 +159,9 @@ public class ZooKeeperMain {
 
         /**
          * Parses a command line that may contain one or more flags
+         * 解析cli服务参数
+         *
+         *
          * before an optional command string
          * @param args command line arguments
          * @return true if parsing succeeded, false otherwise.
@@ -196,6 +201,8 @@ public class ZooKeeperMain {
 
         /**
          * Breaks a string into command + arguments.
+         * 解析命令
+         *
          * @param cmdstring string of form "cmd arg1 arg2..etc"
          * @return true if parsing succeeded.
          */
@@ -214,7 +221,9 @@ public class ZooKeeperMain {
             if (args.isEmpty()){
                 return false;
             }
+            // 命令
             command = args.get(0);
+            // 参数
             cmdArgs = args;
             return true;
         }
@@ -267,8 +276,11 @@ public class ZooKeeperMain {
     }
 
     public ZooKeeperMain(String args[]) throws IOException, InterruptedException {
+        // 解析参数
         cl.parseOptions(args);
         System.out.println("Connecting to " + cl.getOption("server"));
+
+        // 创建连接zk的client对象
         connectToZK(cl.getOption("server"));
     }
 
@@ -276,6 +288,12 @@ public class ZooKeeperMain {
       this.zk = zk;
     }
 
+    /**
+     * 运行命令行模式
+     * @throws CliException
+     * @throws IOException
+     * @throws InterruptedException
+     */
     void run() throws CliException, IOException, InterruptedException {
         if (cl.getCommand() == null) {
             System.out.println("Welcome to ZooKeeper!");
@@ -340,6 +358,7 @@ public class ZooKeeperMain {
     public void executeLine(String line) throws CliException, InterruptedException, IOException {
       if (!line.equals("")) {
         cl.parseCommand(line);
+        // 添加到历史记录
         addToHistory(commandCount,line);
         processCmd(cl);
         commandCount++;
@@ -566,6 +585,14 @@ public class ZooKeeperMain {
         return watch;
     }
 
+    /**
+     * 执行zk命令
+     * @param co
+     * @return
+     * @throws CliException
+     * @throws IOException
+     * @throws InterruptedException
+     */
     protected boolean processZKCmd(MyCommandOptions co) throws CliException, IOException, InterruptedException {
         String[] args = co.getArgArray();
         String cmd = co.getCommand();
@@ -573,7 +600,7 @@ public class ZooKeeperMain {
             usage();
             throw new MalformedCommandException("No command entered");
         }
-
+        // 命令列表中没有找到
         if (!commandMap.containsKey(cmd)) {
             usage();
             throw new CommandNotFoundException("Command not found " + cmd);
@@ -626,6 +653,7 @@ public class ZooKeeperMain {
         CliCommand cliCmd = commandMapCli.get(cmd);
         if(cliCmd != null) {
             cliCmd.setZk(zk);
+            // 暴露方法parse和exec用于处理不同类型的请求
             watch = cliCmd.parse(args).exec();
         } else if (!commandMap.containsKey(cmd)) {
              usage();

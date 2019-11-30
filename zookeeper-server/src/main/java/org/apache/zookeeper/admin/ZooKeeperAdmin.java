@@ -18,21 +18,23 @@
 
 package org.apache.zookeeper.admin;
 
-import java.io.IOException;
-import java.util.List;
-
 import org.apache.yetus.audience.InterfaceAudience;
-import org.apache.zookeeper.ZooKeeper;
-import org.apache.zookeeper.Watcher;
-import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.AsyncCallback.DataCallback;
+import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.Watcher;
+import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.client.ZKClientConfig;
 import org.apache.zookeeper.data.Stat;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.util.List;
+
 /**
+ * 这个是从zookeeper功能中抽出一部分admin(zk集群管理)相关的功能，比如reconfig
+ *
+ *
  * This is the main class for ZooKeeperAdmin client library.
  * This library is used to perform cluster administration tasks,
  * such as reconfigure cluster membership. The ZooKeeperAdmin class

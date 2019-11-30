@@ -25,6 +25,8 @@ package org.apache.zookeeper.common;
 public class PathUtils {
 	
 	/** validate the provided znode path string
+     * 校验zk的路径
+     *
 	 * @param path znode path string
 	 * @param isSequential if the path is being created
 	 * with a sequential flag
