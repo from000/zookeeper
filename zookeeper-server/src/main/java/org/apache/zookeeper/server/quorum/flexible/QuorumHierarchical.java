@@ -18,23 +18,21 @@
 
 package org.apache.zookeeper.server.quorum.flexible;
 
+import org.apache.zookeeper.server.quorum.QuorumPeer.LearnerType;
+import org.apache.zookeeper.server.quorum.QuorumPeer.QuorumServer;
+import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.util.Set;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Map.Entry;
-
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.apache.zookeeper.server.quorum.QuorumPeer.LearnerType;
-import org.apache.zookeeper.server.quorum.QuorumPeer.QuorumServer;
-import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
+import java.util.Properties;
+import java.util.Set;
 
 
 /**
@@ -182,6 +180,8 @@ public class QuorumHierarchical implements QuorumVerifier {
     /**
      * Parse properties if configuration given in a separate file.
      * Assumes that allMembers has been already assigned
+     * 解析Hierarchical类型的多节点配置
+     *
      * @throws ConfigException 
      */
     private void parse(Properties quorumProp) throws ConfigException{

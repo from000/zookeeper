@@ -603,6 +603,13 @@ public class QuorumPeerConfig {
         }          
     }
 
+    /**
+     * 解析集群中的多节点
+     * @param prop
+     * @param configBackwardCompatibilityMode
+     * @throws IOException
+     * @throws ConfigException
+     */
     void setupQuorumPeerConfig(Properties prop, boolean configBackwardCompatibilityMode)
             throws IOException, ConfigException {
         // 解析动态参数
@@ -815,6 +822,7 @@ public class QuorumPeerConfig {
      * @return
      */
     public boolean isDistributed() {
+        // quorumVerifier.getVotingMembers() 投票成员要两个以上
         return quorumVerifier!=null && (!standaloneEnabled || quorumVerifier.getVotingMembers().size() > 1);
     }
 

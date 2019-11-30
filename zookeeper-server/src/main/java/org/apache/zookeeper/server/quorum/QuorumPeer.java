@@ -224,6 +224,12 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         private static final String wrongFormat = " does not have the form server_config or server_config;client_config"+
         " where server_config is host:port:port or host:port:port:type and client_config is port or host:port";
 
+        /**
+         * 服务格式（host:port:port:type），可以在配置到配置文件中
+         * @param sid
+         * @param addressStr
+         * @throws ConfigException
+         */
         public QuorumServer(long sid, String addressStr) throws ConfigException {
             // LOG.warn("sid = " + sid + " addressStr = " + addressStr);
             this.id = sid;
@@ -831,6 +837,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         super("QuorumPeer");
         quorumStats = new QuorumStats(this);
         jmxRemotePeerBean = new HashMap<Long, RemotePeerBean>();
+        // jetty admin服务
         adminServer = AdminServerFactory.createAdminServer();
         x509Util = new QuorumX509Util();
         initialize();
@@ -878,7 +885,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         // init quorum auth server & learner
 
         if (isQuorumSaslAuthEnabled()) {
-            // 认证服务器
+            // 认证服务器（所有节点）
             Set<String> authzHosts = new HashSet<String>();
             for (QuorumServer qs : getView().values()) {
                 authzHosts.add(qs.hostname);
@@ -1402,6 +1409,8 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     /**
      * A 'view' is a node's current opinion of the membership of the entire
      * ensemble.
+     *
+     * 所有的成员
      */
     public Map<Long,QuorumPeer.QuorumServer> getView() {
         return Collections.unmodifiableMap(getQuorumVerifier().getAllMembers());

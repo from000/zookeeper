@@ -222,7 +222,7 @@ public class QuorumPeerMain {
               quorumPeer.setQuorumLearnerLoginContext(config.quorumLearnerLoginContext);
           }
           quorumPeer.setQuorumCnxnThreadsSize(config.quorumCnxnThreadsSize);
-          // ----------------------------
+          // -------------初始化当前zk服务节点的配置---------------
 
           quorumPeer.initialize();
           
