@@ -141,10 +141,18 @@ public class SerializeUtils {
         dt.deserialize(ia, "tree");
     }
 
+    /**
+     * 序列化快照内容
+     * @param dt
+     * @param oa
+     * @param sessions
+     * @throws IOException
+     */
     public static void serializeSnapshot(DataTree dt,OutputArchive oa,
             Map<Long, Integer> sessions) throws IOException {
         HashMap<Long, Integer> sessSnap = new HashMap<Long, Integer>(sessions);
         oa.writeInt(sessSnap.size(), "count");
+        // sessionId -> sessionTimeOut
         for (Entry<Long, Integer> entry : sessSnap.entrySet()) {
             oa.writeLong(entry.getKey().longValue(), "id");
             oa.writeInt(entry.getValue().intValue(), "timeout");

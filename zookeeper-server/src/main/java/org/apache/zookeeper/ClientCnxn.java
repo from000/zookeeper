@@ -370,6 +370,9 @@ public class ClientCnxn {
         initRequestTimeout();
     }
 
+    /**
+     * 客户端启动触发
+     */
     public void start() {
         sendThread.start();
         eventThread.start();

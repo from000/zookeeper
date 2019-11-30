@@ -18,15 +18,18 @@
 
 package org.apache.zookeeper.client;
 
-import java.io.File;
-
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.common.ZKConfig;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
 
+import java.io.File;
+
 /**
  * Handles client specific properties
+ *
+ *
+ * zk客户端配置
  * @since 3.5.2
  */
 @InterfaceAudience.Public

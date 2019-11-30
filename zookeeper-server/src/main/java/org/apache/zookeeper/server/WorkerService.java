@@ -18,17 +18,13 @@
 
 package org.apache.zookeeper.server;
 
-import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.zookeeper.common.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * WorkerService is a worker thread pool for running tasks and is implemented
@@ -47,7 +43,7 @@ import org.slf4j.LoggerFactory;
 public class WorkerService {
     private static final Logger LOG =
         LoggerFactory.getLogger(WorkerService.class);
-
+    // 维护多个线程池
     private final ArrayList<ExecutorService> workers =
         new ArrayList<ExecutorService>();
 
@@ -195,10 +191,15 @@ public class WorkerService {
         }
     }
 
+    /**
+     * worker服务启动
+     */
     public void start() {
+        //worker线程数
         if (numWorkerThreads > 0) {
             if (threadsAreAssignable) {
                 for(int i = 1; i <= numWorkerThreads; ++i) {
+                    // 一个worker对应一个线程池
                     workers.add(Executors.newFixedThreadPool(
                         1, new DaemonThreadFactory(threadNamePrefix, i)));
                 }

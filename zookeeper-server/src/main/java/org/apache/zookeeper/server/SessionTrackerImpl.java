@@ -18,6 +18,12 @@
 
 package org.apache.zookeeper.server;
 
+import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.KeeperException.SessionExpiredException;
+import org.apache.zookeeper.common.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.text.MessageFormat;
@@ -25,22 +31,19 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.KeeperException.SessionExpiredException;
-import org.apache.zookeeper.common.Time;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This is a full featured SessionTracker. It tracks session in grouped by tick
  * interval. It always rounds up the tick interval to provide a sort of grace
  * period. Sessions are thus expired in batches made up of sessions that expire
  * in a given interval.
+ *
+ *
+ * 维护session的线程（zookeeper中session意味着一个物理连接，客户端connect成功之后，会发送一个connect型请求，此时就会有session 产生）
  */
 public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         SessionTracker {
@@ -79,6 +82,9 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
     /**
      * Generates an initial sessionId. High order byte is serverId, next 5
      * 5 bytes are from timestamp, and low order 2 bytes are 0s.
+     *
+     *
+     * 生成sessionId
      */
     public static long initializeNextSession(long id) {
         long nextSid;
@@ -180,6 +186,11 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         return true;
     }
 
+    /**
+     * 更新session过期队列
+     * @param s
+     * @param timeout
+     */
     private void updateSessionExpiry(SessionImpl s, int timeout) {
         logTraceTouchSession(s.sessionId, timeout, "");
         sessionExpiryQueue.update(s, timeout);
@@ -253,6 +264,12 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         return addSession(id, sessionTimeout);
     }
 
+    /**
+     * 添加一个session
+     * @param id sessionId
+     * @param sessionTimeout session的超时时间
+     * @return
+     */
     public synchronized boolean addSession(long id, int sessionTimeout) {
         sessionsWithTimeout.put(id, sessionTimeout);
 

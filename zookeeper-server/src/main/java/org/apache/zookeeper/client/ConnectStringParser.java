@@ -27,6 +27,8 @@ import java.util.List;
 import static org.apache.zookeeper.common.StringUtils.split;
 
 /**
+ * 解析连接字符串
+ *
  * A parser for ZooKeeper Client connect strings.
  * 
  * This class is not meant to be seen or used outside of ZooKeeper itself.

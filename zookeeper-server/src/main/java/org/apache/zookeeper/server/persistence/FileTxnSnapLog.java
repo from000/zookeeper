@@ -231,6 +231,8 @@ public class FileTxnSnapLog {
         // deserializeResult：最近一个快照zxid，同时zkDataBase加载最近的一个有效快照
         long deserializeResult = snapLog.deserialize(dt, sessions);
         FileTxnLog txnLog = new FileTxnLog(dataDir);
+
+        // 如果不存在快照文件
         if (-1L == deserializeResult) {
             /* this means that we couldn't find any snapshot, so we need to
              * initialize an empty database (reported in ZOOKEEPER-2325) */
@@ -247,6 +249,8 @@ public class FileTxnSnapLog {
             }
             /* TODO: (br33d) we should either put a ConcurrentHashMap on restore()
              *       or use Map on save() */
+
+            // 保存初始化快照文件
             save(dt, (ConcurrentHashMap<Long, Integer>)sessions);
             /* return a zxid of zero, since we the database is empty */
             return 0;
@@ -404,6 +408,8 @@ public class FileTxnSnapLog {
     }
 
     /**
+     * 保存zk和sessions到快照文件
+     *
      * save the datatree and the sessions into a snapshot
      * @param dataTree the datatree to be serialized onto disk
      * @param sessionsWithTimeouts the session timeouts to be

@@ -162,6 +162,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         this.tickTime = tickTime;
         setMinSessionTimeout(minSessionTimeout);
         setMaxSessionTimeout(maxSessionTimeout);
+        // 设置zk server监听器，比如：监听zk server正在停止等行为
         listener = new ZooKeeperServerListenerImpl(this);
         LOG.info("Created server with tickTime " + tickTime
                 + " minSessionTimeout " + getMinSessionTimeout()
@@ -262,6 +263,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     }
 
     /**
+     *
+     * 加载session和zk数据，并存储数据到快照
+     *
      *  Restore sessions and data
      */
     public void loadData() throws IOException, InterruptedException {
@@ -283,6 +287,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
          *  
          * See ZOOKEEPER-1642 for more detail.
          */
+
+        // 加载zk数据库
         if(zkDb.isInitialized()){
             setZxid(zkDb.getDataTreeLastProcessedZxid());
         }
@@ -291,22 +297,26 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         }
         
         // Clean up dead sessions
+        // 清除失效的sessions
         LinkedList<Long> deadSessions = new LinkedList<Long>();
         for (Long session : zkDb.getSessions()) {
             if (zkDb.getSessionWithTimeOuts().get(session) == null) {
                 deadSessions.add(session);
             }
         }
-
         for (long session : deadSessions) {
             // XXX: Is lastProcessedZxid really the best thing to use?
             killSession(session, zkDb.getDataTreeLastProcessedZxid());
         }
 
         // Make a clean snapshot
+        // 清除session列表之后，再序列化到快照文件中
         takeSnapshot();
     }
 
+    /**
+     * 清除session列表之后，再序列化到快照文件中
+     */
     public void takeSnapshot(){
         try {
             txnLogFactory.save(zkDb.getDataTree(), zkDb.getSessionWithTimeOuts());
@@ -381,13 +391,20 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         close(sessionId);
     }
 
+    /**
+     * 删除zk server的session
+     * @param sessionId
+     * @param zxid
+     */
     protected void killSession(long sessionId, long zxid) {
+        // zk数据库删除session
         zkDb.killSession(sessionId, zxid);
         if (LOG.isTraceEnabled()) {
             ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK,
                                          "ZooKeeperServer --- killSession: 0x"
                     + Long.toHexString(sessionId));
         }
+        // session管理器删除当前session
         if (sessionTracker != null) {
             sessionTracker.removeSession(sessionId);
         }
@@ -440,6 +457,11 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         }
     }
 
+    /**
+     * 加载zkDataBase数据
+     * @throws IOException
+     * @throws InterruptedException
+     */
     public void startdata()
     throws IOException, InterruptedException {
         //check to see if zkDb is not null
@@ -451,20 +473,36 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         }
     }
 
+    /**
+     * zk server启动
+     */
     public synchronized void startup() {
+
         if (sessionTracker == null) {
             createSessionTracker();
         }
+        // 启动session追踪
         startSessionTracker();
+
+        // 启动请求处理链
         setupRequestProcessors();
 
+        // 注册jmx
         registerJMX();
 
+        // 设置state
         setState(State.RUNNING);
+        // 通知所有的等待线程
         notifyAll();
     }
 
+    /**
+     * 这是使用的是装饰器模式，建议使用责任链模式，请求处理链表达更清楚
+     *
+     * 处理顺序： PrepRequestProcessor -> SyncRequestProcessor -> FinalRequestProcessor
+     */
     protected void setupRequestProcessors() {
+
         RequestProcessor finalProcessor = new FinalRequestProcessor(this);
         RequestProcessor syncProcessor = new SyncRequestProcessor(this,
                 finalProcessor);
@@ -516,6 +554,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     protected void setState(State state) {
         this.state = state;
         // Notify server state changes to the registered shutdown handler, if any.
+
+        // 设置状态时，判断state是不是处于异常情况，如果是就使用zkShutdownHandler处理
         if (zkShutdownHandler != null) {
             zkShutdownHandler.handle(state);
         } else {

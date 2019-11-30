@@ -18,6 +18,9 @@
 
 package org.apache.zookeeper.server;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.InetAddress;
@@ -28,19 +31,9 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Queue;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * NIOServerCnxnFactory implements a multi-threaded ServerCnxnFactory using
@@ -560,6 +553,9 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
     /**
      * This thread is responsible for closing stale connections so that
      * connections on which no session is established are properly expired.
+     *
+     *
+     * 清除过期连接线程
      */
     private class ConnectionExpirerThread extends ZooKeeperThread {
         ConnectionExpirerThread() {
@@ -574,6 +570,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
                         Thread.sleep(waitTime);
                         continue;
                     }
+                    // 过期连接队列
                     for (NIOServerCnxn conn : cnxnExpiryQueue.poll()) {
                         conn.close();
                     }
@@ -614,7 +611,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
     protected int maxClientCnxns = 60;
 
     int sessionlessCnxnTimeout;
-    private ExpiryQueue<NIOServerCnxn> cnxnExpiryQueue;
+    private ExpiryQueue<NIOServerCnxn> cnxnExpiryQueue; // 过期连接队列
 
 
     protected WorkerService workerPool;
@@ -634,7 +631,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
 
     private volatile boolean stopped = true;
     private ConnectionExpirerThread expirerThread;
-    private AcceptThread acceptThread;
+    private AcceptThread acceptThread;  // acceptThread收到连接以后按照轮训策略交给selectorThread处理
     private final Set<SelectorThread> selectorThreads =
         new HashSet<SelectorThread>();
 
@@ -643,6 +640,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
         if (secure) {
             throw new UnsupportedOperationException("SSL isn't supported in NIOServerCnxn");
         }
+        // 配置sasl登录
         configureSaslLogin();
 
         maxClientCnxns = maxcc;
@@ -734,6 +732,9 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
         maxClientCnxns = max;
     }
 
+    /**
+     * 启动线程
+     */
     @Override
     public void start() {
         stopped = false;
@@ -750,6 +751,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
         if (acceptThread.getState() == Thread.State.NEW) {
             acceptThread.start();
         }
+        // 启动清除过期连接线程
         if (expirerThread.getState() == Thread.State.NEW) {
             expirerThread.start();
         }
@@ -758,10 +760,14 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
     @Override
     public void startup(ZooKeeperServer zks, boolean startServer)
             throws IOException, InterruptedException {
+        // 启动相关线程
         start();
         setZooKeeperServer(zks);
+        // zk server启动（）
         if (startServer) {
+            // 加载数据到zkDataBase,清除无效的session,将zk数据和session序列化后保存到文件中等
             zks.startdata();
+            // 启动定时清除session的管理器,注册jmx,添加请求处理器
             zks.startup();
         }
     }

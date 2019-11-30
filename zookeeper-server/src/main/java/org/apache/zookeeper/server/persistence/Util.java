@@ -78,6 +78,8 @@ public class Util {
 
     /**
      * Creates a snapshot file name.
+     *
+     * 创建快照文件名
      * 
      * @param zxid used as a suffix
      * @return file name
