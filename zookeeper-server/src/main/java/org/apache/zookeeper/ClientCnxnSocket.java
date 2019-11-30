@@ -18,6 +18,16 @@
 
 package org.apache.zookeeper;
 
+import org.apache.jute.BinaryInputArchive;
+import org.apache.zookeeper.ClientCnxn.Packet;
+import org.apache.zookeeper.client.ZKClientConfig;
+import org.apache.zookeeper.common.Time;
+import org.apache.zookeeper.common.ZKConfig;
+import org.apache.zookeeper.proto.ConnectResponse;
+import org.apache.zookeeper.server.ByteBufferInputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -26,16 +36,6 @@ import java.text.MessageFormat;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.jute.BinaryInputArchive;
-import org.apache.zookeeper.ClientCnxn.Packet;
-import org.apache.zookeeper.client.ZKClientConfig;
-import org.apache.zookeeper.common.ZKConfig;
-import org.apache.zookeeper.common.Time;
-import org.apache.zookeeper.proto.ConnectResponse;
-import org.apache.zookeeper.server.ByteBufferInputStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A ClientCnxnSocket does the lower level communication with a socket
@@ -82,11 +82,15 @@ abstract class ClientCnxnSocket {
         this.sessionId = sessionId;
         this.outgoingQueue = outgoingQueue;
     }
-
+    // 更新最新的时间
     void updateNow() {
         now = Time.currentElapsedTime();
     }
 
+    /**
+     * 已经空闲的时间
+     * @return
+     */
     int getIdleRecv() {
         return (int) (now - lastHeard);
     }
@@ -111,6 +115,7 @@ abstract class ClientCnxnSocket {
         this.lastSend = now;
     }
 
+    // 更新最后一次send/心跳时间
     void updateLastSendAndHeard() {
         this.lastSend = now;
         this.lastHeard = now;

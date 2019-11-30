@@ -16,13 +16,14 @@
  */
 package org.apache.zookeeper.cli;
 
-import java.util.Collections;
-import java.util.List;
 import org.apache.commons.cli.*;
 import org.apache.zookeeper.AsyncCallback.StringCallback;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZKUtil;
 import org.apache.zookeeper.data.Stat;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * ls command for cli
@@ -116,6 +117,11 @@ public class LsCommand extends CliCommand {
         return watch;
     }
 
+    /**
+     * 打印子节点
+     * @param children
+     * @param stat
+     */
     private void printChildren(List<String> children, Stat stat) {
         Collections.sort(children);
         out.append("[");

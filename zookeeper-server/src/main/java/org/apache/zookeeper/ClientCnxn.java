@@ -92,11 +92,15 @@ public class ClientCnxn {
 
     /**
      * These are the packets that have been sent and are waiting for a response.
+     *
+     * 已经发送出去等待结果的packet
      */
     private final LinkedList<Packet> pendingQueue = new LinkedList<Packet>();
 
     /**
      * These are the packets that need to be sent.
+     *
+     * 等待发送packet的队列
      */
     private final LinkedBlockingDeque<Packet> outgoingQueue = new LinkedBlockingDeque<Packet>();
 
@@ -787,6 +791,9 @@ public class ClientCnxn {
     }
 
     /**
+     *
+     *
+     *
      * This class services the outgoing request queue and generates the heart
      * beats. It also spawns the ReadThread.
      */
@@ -1052,6 +1059,11 @@ public class ClientCnxn {
         // throws a LoginException: see startConnect() below.
         private boolean saslLoginFailed = false;
 
+        /**
+         * 客户端连接
+         * @param addr
+         * @throws IOException
+         */
         private void startConnect(InetSocketAddress addr) throws IOException {
             // initializing it for new connection
             saslLoginFailed = false;
@@ -1124,6 +1136,7 @@ public class ClientCnxn {
                         } else {
                             serverAddress = hostProvider.next(1000);
                         }
+                        // 如果没有连接服务端，重新连接
                         startConnect(serverAddress);
                         clientCnxnSocket.updateLastSendAndHeard();
                     }
@@ -1167,7 +1180,8 @@ public class ClientCnxn {
                     } else {
                         to = connectTimeout - clientCnxnSocket.getIdleRecv();
                     }
-                    
+
+                    // 如果session已经超时
                     if (to <= 0) {
                         String warnInfo;
                         warnInfo = "Client session timed out, have not heard from server in "
@@ -1178,6 +1192,8 @@ public class ClientCnxn {
                         LOG.warn(warnInfo);
                         throw new SessionTimeoutException(warnInfo);
                     }
+
+                    // ------------------------发送心跳------------------------
                     if (state.isConnected()) {
                     	//1000(1 second) is to prevent race condition missing to send the second ping
                     	//also make sure not to send too many pings when readTimeout is small 
@@ -1193,6 +1209,8 @@ public class ClientCnxn {
                             }
                         }
                     }
+                    // ------------------------发送心跳------------------------
+
 
                     // If we are in read-only mode, seek for read/write server
                     if (state == States.CONNECTEDREADONLY) {
@@ -1208,6 +1226,7 @@ public class ClientCnxn {
                         to = Math.min(to, pingRwTimeout - idlePingRwServer);
                     }
 
+                    // 处理请求的关键逻辑，详情看实现类。参考：https://www.cnblogs.com/shangxiaofei/p/7171882.html
                     clientCnxnSocket.doTransport(to, pendingQueue, ClientCnxn.this);
                 } catch (Throwable e) {
                     if (closing) {
@@ -1243,12 +1262,18 @@ public class ClientCnxn {
                     }
                 }
             }
+
+            // 没有满足state.isAlive()，说明客户端连接已经失效了
             synchronized (state) {
                 // When it comes to this point, it guarantees that later queued
                 // packet to outgoingQueue will be notified of death.
+                // 清理操作
                 cleanup();
             }
+            // 关闭客户端连接
             clientCnxnSocket.close();
+
+            // 添加到事件线程中
             if (state.isAlive()) {
                 eventThread.queueEvent(new WatchedEvent(Event.EventType.None,
                         Event.KeeperState.Disconnected, null));
@@ -1326,7 +1351,7 @@ public class ClientCnxn {
         }
 
         /**
-         *
+         * 清理客户端
          */
         private void cleanup() {
             // socket相关信息清除
