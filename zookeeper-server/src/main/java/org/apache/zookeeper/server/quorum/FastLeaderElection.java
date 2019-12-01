@@ -450,6 +450,7 @@ public class FastLeaderElection implements Election {
             public void run() {
                 while (!stop) {
                     try {
+                        // 获取发送队列中的数据
                         ToSend m = sendqueue.poll(3000, TimeUnit.MILLISECONDS);
                         if(m == null) continue;
 
@@ -463,6 +464,8 @@ public class FastLeaderElection implements Election {
 
             /**
              * Called by run() once there is a new message to send.
+             *
+             * 处理发送队列中的消息
              *
              * @param m     message to send
              */
@@ -616,8 +619,8 @@ public class FastLeaderElection implements Election {
         proposedLeader = -1;
         proposedZxid = -1;
 
-        sendqueue = new LinkedBlockingQueue<ToSend>();
-        recvqueue = new LinkedBlockingQueue<Notification>();
+        sendqueue = new LinkedBlockingQueue<ToSend>(); // 发送选票队列
+        recvqueue = new LinkedBlockingQueue<Notification>(); // 接收选票队列
         this.messenger = new Messenger(manager);
     }
 

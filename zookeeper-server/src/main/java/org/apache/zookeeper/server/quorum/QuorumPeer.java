@@ -165,6 +165,9 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
          *
          * If the DNS lookup fails, this.addr and electionAddr remain
          * unmodified.
+         *
+         *
+         * 重新检查nds当前host表示的地址，防止地址更新
          */
         public void recreateSocketAddresses() {
             if (this.addr == null) {
@@ -724,7 +727,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             }
         }
     }
-
+    // 初始化state LOOKING
     private ServerState state = ServerState.LOOKING;
     
     private boolean reconfigFlag = false; // indicates that a reconfig just committed
@@ -818,7 +821,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     
     private int electionType;
 
-    Election electionAlg;
+    Election electionAlg; // 选举算法
 
     ServerCnxnFactory cnxnFactory;
     ServerCnxnFactory secureCnxnFactory;
@@ -991,6 +994,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
        try {
            // 创建投票对象
            if (getPeerState() == ServerState.LOOKING) {
+               // 产生当前的投票
                currentVote = new Vote(myid, getLastLoggedZxid(), getCurrentEpoch());
            }
        } catch(IOException e) {
@@ -1014,6 +1018,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                 throw new RuntimeException(e);
             }
         }
+        // 根据选举类型，创建选举算法
         this.electionAlg = createElectionAlgorithm(electionType);
     }
 
@@ -1127,8 +1132,9 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         case 2:
             le = new AuthFastLeaderElection(this, true);
             break;
-        case 3:
+        case 3: // 其余三种已经舍弃
             QuorumCnxManager qcm = createCnxnManager();
+            // 使用原子性操作，存在旧的对象就清除掉
             QuorumCnxManager oldQcm = qcmRef.getAndSet(qcm);
             if (oldQcm != null) {
                 LOG.warn("Clobbering already-set QuorumCnxManager (restarting leader election?)");
@@ -1136,7 +1142,9 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             }
             QuorumCnxManager.Listener listener = qcm.listener;
             if(listener != null){
+                // 执行监听的run方法
                 listener.start();
+                // 核心的选举算法
                 FastLeaderElection fle = new FastLeaderElection(this, qcm);
                 fle.start();
                 le = fle;
