@@ -21,6 +21,10 @@ package org.apache.zookeeper.txn;
 
 import org.apache.jute.*;
 import org.apache.yetus.audience.InterfaceAudience;
+
+/**
+ * 事务头信息
+ */
 @InterfaceAudience.Public
 public class TxnHeader implements Record {
 //  clientId	客户端ID，用来唯一标识该请求所属的客户端

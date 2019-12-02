@@ -25,6 +25,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
+/**
+ * 文件的填充对象(txnLog的一部分)
+ */
 public class FilePadding {
     private static final Logger LOG;
     private static long preAllocSize = 65536 * 1024;

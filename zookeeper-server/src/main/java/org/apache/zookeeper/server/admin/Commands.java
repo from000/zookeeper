@@ -18,24 +18,10 @@
 
 package org.apache.zookeeper.server.admin;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.apache.zookeeper.Environment;
 import org.apache.zookeeper.Environment.Entry;
 import org.apache.zookeeper.Version;
-import org.apache.zookeeper.server.DataTree;
-import org.apache.zookeeper.server.ServerCnxnFactory;
-import org.apache.zookeeper.server.ServerStats;
-import org.apache.zookeeper.server.ZKDatabase;
-import org.apache.zookeeper.server.ZooKeeperServer;
-import org.apache.zookeeper.server.ZooTrace;
+import org.apache.zookeeper.server.*;
 import org.apache.zookeeper.server.quorum.Leader;
 import org.apache.zookeeper.server.quorum.LeaderZooKeeperServer;
 import org.apache.zookeeper.server.quorum.ReadOnlyZooKeeperServer;
@@ -43,9 +29,14 @@ import org.apache.zookeeper.server.util.OSMXBean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.*;
+
 /**
  * Class containing static methods for registering and running Commands, as well
  * as default Command definitions.
+ *
+ *
+ * jetty admin 命令的工具类
  *
  * @see Command
  * @see JettyAdminServer
@@ -54,6 +45,7 @@ public class Commands {
     static final Logger LOG = LoggerFactory.getLogger(Commands.class);
 
     /** Maps command names to Command instances */
+    // 命令名 -> 命令实例
     private static Map<String, Command> commands = new HashMap<String, Command>();
     private static Set<String> primaryNames = new HashSet<String>();
 
@@ -76,6 +68,9 @@ public class Commands {
      * any exceptions; any (anticipated) errors should be reported in the
      * "error" entry of the returned map. Likewise, if no command with the given
      * name is registered, this will be noted in the "error" entry.
+     *
+     *
+     * 调用命令的run方法运行
      *
      * @param cmdName
      * @param zkServer
@@ -110,6 +105,9 @@ public class Commands {
         return commands.get(cmdName);
     }
 
+    /**
+     * 注册常见的admin命令
+     */
     static {
         registerCommand(new CnxnStatResetCommand());
         registerCommand(new ConfCommand());

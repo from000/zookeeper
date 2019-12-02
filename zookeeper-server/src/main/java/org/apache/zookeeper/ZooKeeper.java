@@ -86,6 +86,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
+ *
+ * 这是客户端的核心类，包含所有对zk的操作，比如：create,getData,delete等
+ *
  * This is the main class of ZooKeeper client library. To use a ZooKeeper
  * service, an application must first instantiate an object of ZooKeeper class.
  * All the iterations will be done by calling the methods of ZooKeeper class.

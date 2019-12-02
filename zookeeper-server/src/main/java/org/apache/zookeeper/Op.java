@@ -38,6 +38,9 @@ import java.util.List;
  * Sub-classes of Op each represent each detailed type but should not normally be referenced except via
  * the provided factory methods.
  *
+ *
+ * 单个操作对象
+ *
  * @see ZooKeeper#create(String, byte[], java.util.List, CreateMode)
  * @see ZooKeeper#create(String, byte[], java.util.List, CreateMode, org.apache.zookeeper.AsyncCallback.StringCallback, Object)
  * @see ZooKeeper#delete(String, int)

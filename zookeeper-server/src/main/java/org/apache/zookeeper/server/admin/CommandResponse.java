@@ -22,6 +22,9 @@ import java.util.Map;
 
 /**
  * A response from running a {@link Command}.
+ *
+ *
+ * 请求admin命令之后的响应对象
  */
 public class CommandResponse {
 
@@ -99,6 +102,8 @@ public class CommandResponse {
     /**
      * Converts this response to a map. The returned map is mutable, and
      * changes to it do not reflect back into this response.
+     *
+     * 将命令结果转为map对象
      *
      * @return map representation of response
      */

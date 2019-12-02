@@ -72,6 +72,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
             throw new IOException("Socket is null!");
         }
         if (sockKey.isReadable()) {
+            // 读取服务端返回结果
             int rc = sock.read(incomingBuffer);
             if (rc < 0) {
                 throw new EndOfStreamException(
@@ -85,6 +86,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     recvCount.getAndIncrement();
                     readLength();
                 } else if (!initialized) {
+                    // 读取初始化结果
                     readConnectResult();
                     enableRead();
                     if (findSendablePacket(outgoingQueue,
@@ -172,12 +174,17 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         // This packet must be sent so that the SASL authentication process
         // can proceed, but all other packets should wait until
         // SASL authentication completes.
+
+
+        // 先找到认证packet(请求头为空)
         Iterator<Packet> iter = outgoingQueue.iterator();
         while (iter.hasNext()) {
             Packet p = iter.next();
+            // 如果请求packet的头信息为空
             if (p.requestHeader == null) {
                 // We've found the priming-packet. Move it to the beginning of the queue.
                 iter.remove();
+                // 认证packet添加到最前面，等待处理
                 outgoingQueue.addFirst(p);
                 return p;
             } else {
@@ -367,6 +374,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         }
         // 手动修改为可写状态
         if (sendThread.getZkState().isConnected()) {
+            // 如果存在可以发送的packet
             if (findSendablePacket(outgoingQueue,
                     sendThread.tunnelAuthInProgress()) != null) {
                 enableWrite();

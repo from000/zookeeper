@@ -21,6 +21,10 @@ package org.apache.zookeeper.server.persistence;
 
 import org.apache.jute.*;
 import org.apache.yetus.audience.InterfaceAudience;
+
+/**
+ * 文件头信息（txnLog的组成）
+ */
 @InterfaceAudience.Public
 public class FileHeader implements Record {
   private int magic;

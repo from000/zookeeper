@@ -26,6 +26,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 定义zk的所有异常
+ */
 @SuppressWarnings("serial")
 @InterfaceAudience.Public
 public abstract class KeeperException extends Exception {

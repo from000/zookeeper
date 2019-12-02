@@ -22,6 +22,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * jetty admin 命令的通用实现
+ */
 public abstract class CommandBase implements Command {
     private final String primaryName;
     private final Set<String> names;
@@ -35,6 +38,7 @@ public abstract class CommandBase implements Command {
     }
 
     protected CommandBase(List<String> names, String doc) {
+        // names的第一个作为primaryName
         this.primaryName = names.get(0);
         this.names = new HashSet<String>(names);
         this.doc = doc;

@@ -18,6 +18,10 @@
 
 package org.apache.zookeeper;
 
+import org.apache.yetus.audience.InterfaceAudience;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -25,10 +29,9 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 
-import org.apache.yetus.audience.InterfaceAudience;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+/**
+ * admin客户端，简化访问 zk admin
+ */
 @InterfaceAudience.Public
 public class ServerAdminClient {
     private static final Logger LOG = LoggerFactory.getLogger(ServerAdminClient.class);

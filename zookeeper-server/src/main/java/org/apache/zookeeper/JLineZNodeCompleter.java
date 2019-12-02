@@ -18,11 +18,14 @@
 
 package org.apache.zookeeper;
 
+import jline.console.completer.Completer;
+
 import java.util.Collections;
 import java.util.List;
 
-import jline.console.completer.Completer;
-
+/**
+ * 自动补全zk的命令行
+ */
 class JLineZNodeCompleter implements Completer {
     private ZooKeeper zk;
 
@@ -48,9 +51,17 @@ class JLineZNodeCompleter implements Completer {
         return completeCommand(buffer, token, candidates);
     }
 
+    /**
+     * 自动补全zk命令
+     * @param buffer
+     * @param token
+     * @param candidates
+     * @return
+     */
     private int completeCommand(String buffer, String token,
             List<String> candidates)
     {
+        // 查询zk支持的所有命令
         for (String cmd : ZooKeeperMain.getCommands()) {
             if (cmd.startsWith( token )) {
                 candidates.add(cmd);
@@ -59,6 +70,13 @@ class JLineZNodeCompleter implements Completer {
         return buffer.lastIndexOf(" ")+1;
     }
 
+    /**
+     * 自动补全节点路径
+     * @param buffer
+     * @param token
+     * @param candidates
+     * @return
+     */
     private int completeZNode( String buffer, String token,
             List<String> candidates)
     {
@@ -68,6 +86,7 @@ class JLineZNodeCompleter implements Completer {
         try {
             // Only the root path can end in a /, so strip it off every other prefix
             String dir = idx == 1 ? "/" : path.substring(0,idx-1);
+            // 查询zk服务器中的子节点路径
             List<String> children = zk.getChildren(dir, false);
             for (String child : children) {
                 if (child.startsWith(prefix)) {

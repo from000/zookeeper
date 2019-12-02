@@ -926,7 +926,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         // 启动之后马上进行选举
         startLeaderElection();
 
-        // 线程执行
+        // 线程执行run
         super.start();
     }
 
@@ -1238,6 +1238,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                     LOG.info("LOOKING");
 
                     if (Boolean.getBoolean("readonlymode.enabled")) {
+                        // 是否开启仅读zk服务
                         LOG.info("Attempting to start ReadOnlyZooKeeperServer");
 
                         // Create read-only server but don't start it immediately
@@ -1266,10 +1267,12 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                             }
                         };
                         try {
+                            // 启动仅读的zk服务
                             roZkMgr.start();
                             reconfigFlagClear();
                             if (shuttingDownLE) {
                                 shuttingDownLE = false;
+                                // 选举leader
                                 startLeaderElection();
                             }
                             setCurrentVote(makeLEStrategy().lookForLeader());
@@ -1439,6 +1442,10 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
        return getQuorumVerifier().getObservingMembers();
     }
 
+    /**
+     * 所有的投票者id列表
+     * @return
+     */
     public synchronized Set<Long> getCurrentAndNextConfigVoters() {
         Set<Long> voterIds = new HashSet<Long>(getQuorumVerifier()
                 .getVotingMembers().keySet());
@@ -1611,6 +1618,8 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
 
     /**
      * Return QuorumVerifier object for the last proposed configuration.
+     *
+     * 最后一次提议的配置
      */
     public QuorumVerifier getLastSeenQuorumVerifier(){
         synchronized (QV_LOCK) {

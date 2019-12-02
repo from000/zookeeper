@@ -34,6 +34,9 @@ import java.util.*;
 /**
  * A collection of utility methods for dealing with file name parsing, 
  * low level I/O file operations and marshalling/unmarshalling.
+ *
+ *
+ * zk持久化的工具类
  */
 public class Util {
     private static final Logger LOG = LoggerFactory.getLogger(Util.class);

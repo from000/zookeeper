@@ -42,6 +42,9 @@ public class ZKUtil {
      *
      * See {@link #delete(String, int)} for more details.
      *
+     *
+     * 根据根节点路径，递归删除所有的子节点
+     *
      * @throws IllegalArgumentException if an invalid path is specified
      */
     public static void deleteRecursive(ZooKeeper zk, final String pathRoot)
@@ -68,6 +71,9 @@ public class ZKUtil {
      * If there is an error with deleting one of the sub-nodes in the tree,
      * this operation would abort and would be the responsibility of the app to handle the same.
      * <p>
+     *
+     *     根据根节点路径，递归删除所有的子节点，并触发回调
+     *
      * @param zk the zookeeper handle
      * @param pathRoot the path to be deleted
      * @param cb call back method
@@ -125,6 +131,9 @@ public class ZKUtil {
     }
 
     /**
+     *
+     * 遍历所有的节点，并通过回调处理节点路径
+     *
      * Visits the subtree with root as given path and calls the passed callback with each znode
      * found during the search. It performs a depth-first, pre-order traversal of the tree.
      * <p>

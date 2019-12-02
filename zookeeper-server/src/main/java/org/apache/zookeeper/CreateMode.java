@@ -23,6 +23,15 @@ import org.slf4j.LoggerFactory;
 
 /***
  *  CreateMode value determines how the znode is created on ZooKeeper.
+ *
+ *  zookeeper的节点类型：
+ *      PERSISTENT： 永久节点，不会随客户端会话失效而消失
+ *      PERSISTENT_SEQUENTIAL： 有序的永久节点
+ *      EPHEMERAL： 临时节点
+ *      EPHEMERAL_SEQUENTIAL： 临时有序节点
+ *      CONTAINER： 如果节点中最后一个子Znode被删除，将会触发删除该Znode
+ *      PERSISTENT_WITH_TTL： 持久顺序定时节点，客户端断开连接后不会自动删除Znode，如果该Znode没有子Znode且在给定TTL时间内无修改，该Znode将会被删除；TTL单位是毫秒，必须大于0且小于或等于 EphemeralType.MAX_TTL
+ *      PERSISTENT_SEQUENTIAL_WITH_TTL： 持久顺序定时节点
  */
 @InterfaceAudience.Public
 public enum CreateMode {

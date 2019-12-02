@@ -30,6 +30,10 @@
 
 package org.apache.zookeeper;
 
+import org.apache.zookeeper.common.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -39,12 +43,10 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.zookeeper.common.Time;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * A base class for running a Unix command.
+ *
+ * 支持在zookeeper上运行shell命令
  *
  * <code>Shell</code> can be used to run unix commands like <code>du</code> or
  * <code>df</code>. It also offers facilities to gate commands by 

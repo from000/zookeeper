@@ -18,16 +18,19 @@
 
 package org.apache.zookeeper;
 
+import org.apache.zookeeper.Watcher.Event.EventType;
+import org.apache.zookeeper.Watcher.WatcherType;
+import org.apache.zookeeper.ZooKeeper.ZKWatchManager;
+
 import java.util.Map;
 import java.util.Set;
-
-import org.apache.zookeeper.Watcher.WatcherType;
-import org.apache.zookeeper.Watcher.Event.EventType;
-import org.apache.zookeeper.ZooKeeper.ZKWatchManager;
 
 /**
  * Handles the special case of removing watches which has registered for a
  * client path
+ *
+ *
+ * 移除某一个路径的watcher
  */
 public class WatchDeregistration {
 

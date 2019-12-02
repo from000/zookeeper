@@ -37,6 +37,9 @@ import java.util.List;
  * the type of the response.  The end of the list is indicated by a MultiHeader
  * with a negative type.  Each individual response is in the same format as
  * with the corresponding operation in the original request list.
+ *
+ *
+ * 事务性处理多个zk请求的响应对象，对应MultiTransactionRecord的响应
  */
 public class MultiResponse implements Record, Iterable<OpResult> {
     private List<OpResult> results = new ArrayList<OpResult>();

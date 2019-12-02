@@ -20,6 +20,9 @@ package org.apache.zookeeper;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * 版本信息，org.apache.zookeeper.version.Info需要通过version/util/VerGen.java生成
+ */
 public class Version implements org.apache.zookeeper.version.Info {
 
     public static String getRevisionHash() {

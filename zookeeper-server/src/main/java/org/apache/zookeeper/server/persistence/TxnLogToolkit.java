@@ -51,6 +51,9 @@ import java.util.zip.Checksum;
 
 import static org.apache.zookeeper.server.persistence.FileTxnLog.TXNLOG_MAGIC;
 
+/**
+ * zookeeper恢复工具，它能够恢复CRC损坏的事务日志（通过调用脚本：bin/zkTxnLogToolkit.sh触发）
+ */
 public class TxnLogToolkit implements Closeable {
 
     static class TxnLogToolkitException extends Exception {

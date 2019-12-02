@@ -17,11 +17,11 @@
  */
 package org.apache.zookeeper;
 
-import java.util.List;
-
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
+
+import java.util.List;
 
 /**
  * Interface definitions of asynchronous callbacks.
@@ -29,6 +29,9 @@ import org.apache.zookeeper.data.Stat;
  * Asynchronous calls usually improve system efficiency on IO-related APIs.
  * <p/>
  * ZooKeeper provides asynchronous version as equivalent to synchronous APIs.
+ *
+ *
+ * zookeeper异步回调类型，比如返回结果数据和状态就可以使用DataCallback
  */
 @InterfaceAudience.Public
 public interface AsyncCallback {

@@ -24,6 +24,8 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.InvocationTargetException;
 
 /**
+ * zk admin服务的创建工厂
+ *
  * Factory class for creating an AdminServer.
  */
 public class AdminServerFactory {

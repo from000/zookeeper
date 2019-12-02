@@ -45,6 +45,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * above the implementations
  * of txnlog and snapshot
  * classes
+ *
+ *
+ * 处理事务日志和快照的工具类
  */
 public class FileTxnSnapLog {
     //the direcotry containing the

@@ -40,6 +40,8 @@ import java.util.zip.CheckedOutputStream;
  * it is responsible for storing, serializing
  * and deserializing the right snapshot.
  * and provides access to the snapshots.
+ *
+ * 快照文件独享
  */
 public class FileSnap implements SnapShot {
     File snapDir;

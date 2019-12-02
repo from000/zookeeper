@@ -19,13 +19,16 @@
 package org.apache.zookeeper;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.ArrayList;
-import java.util.Collections;
-
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Id;
 
+import java.util.ArrayList;
+import java.util.Collections;
+
+/**
+ * 定义zk操作，比如：操作码，配置路径
+ */
 @InterfaceAudience.Public
 public class ZooDefs {
    

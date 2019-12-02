@@ -92,6 +92,7 @@ public class JettyAdminServer implements AdminServer {
         context.setContextPath("/*");
         server.setHandler(context);
 
+        // jetty admin的处理逻辑是通过CommandServlet实现的，请求地址(/commands/*)
         context.addServlet(new ServletHolder(new CommandServlet()), commandUrl + "/*");
     }
 
@@ -149,12 +150,18 @@ public class JettyAdminServer implements AdminServer {
         this.zkServer = zkServer;
     }
 
+    /**
+     * 处理jetty admin的请求
+     */
     private class CommandServlet extends HttpServlet {
         private static final long serialVersionUID = 1L;
 
         protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
             // Capture the command name from the URL
+
+            // 请求命令就是通过指定路径实现的，比如commands/config，cmd=config
             String cmd = request.getPathInfo();
+            // 获取所有的请求路径
             if (cmd == null || cmd.equals("/")) {
                 // No command specified, print links to all commands instead
                 for (String link : commandLinks()) {
@@ -167,6 +174,7 @@ public class JettyAdminServer implements AdminServer {
             cmd = cmd.substring(1);
 
             // Extract keyword arguments to command from request parameters
+
             @SuppressWarnings("unchecked")
             Map<String, String[]> parameterMap = request.getParameterMap();
             Map<String, String> kwargs = new HashMap<String, String>();
@@ -174,6 +182,7 @@ public class JettyAdminServer implements AdminServer {
                 kwargs.put(entry.getKey(), entry.getValue()[0]);
             }
 
+            // 请求参数作为运行命令的参数
             // Run the command
             CommandResponse cmdResponse = Commands.runCommand(cmd, zkServer, kwargs);
 
@@ -181,12 +190,16 @@ public class JettyAdminServer implements AdminServer {
             CommandOutputter outputter = new JsonOutputter();
             response.setStatus(HttpServletResponse.SC_OK);
             response.setContentType(outputter.getContentType());
+
+            // 响应指定格式的输出结果
             outputter.output(cmdResponse, response.getWriter());
         }
     }
 
     /**
      * Returns a list of URLs to each registered Command.
+     * 返回所有的命令请求路径集合
+     *
      */
     private List<String> commandLinks() {
         List<String> links = new ArrayList<String>();

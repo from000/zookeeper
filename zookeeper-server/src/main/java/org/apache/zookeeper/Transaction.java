@@ -27,6 +27,8 @@ import java.util.List;
  * Provides a builder style interface for doing multiple updates.  This is
  * really just a thin layer on top of Zookeeper.multi().
  *
+ * 将zk的每个操作都转为事务处理
+ *
  * @since 3.4.0
  *
  */
@@ -64,6 +66,11 @@ public class Transaction {
         return zk.multi(ops);
     }
 
+    /**
+     * 提交事务（多个操作）
+     * @param cb
+     * @param ctx
+     */
     public void commit(MultiCallback cb, Object ctx) {
         zk.multi(ops, cb, ctx);
     }

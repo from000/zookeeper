@@ -18,15 +18,17 @@
 
 package org.apache.zookeeper;
 
+import org.slf4j.Logger;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.slf4j.Logger;
-
 /**
  * Provide insight into the runtime environment.
+ *
+ * 环境变量，包含java，系统，zk环境变量。可以看做一个简易的map
  *
  */
 public class Environment {

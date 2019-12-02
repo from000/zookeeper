@@ -22,6 +22,9 @@ import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.server.ZooKeeperServer;
 
 /**
+ *
+ * zk admin服务，可用通过请求管理zk服务
+ *
  * Interface for an embedded admin server that runs Commands. There is only one
  * functional implementation, JettyAdminServer. DummyAdminServer, which does
  * nothing, is used when we do not wish to run a server.

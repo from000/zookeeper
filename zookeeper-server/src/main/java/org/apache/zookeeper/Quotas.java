@@ -22,6 +22,14 @@ package org.apache.zookeeper;
  * this class manages quotas
  * and has many other utils
  * for quota
+ *
+ *
+ * 配额管理：主要牵涉到三个节点
+ *      （1）配额信息: /zookeeper/quota可以看到限额的节点列表（以test为例）
+ *      （2）节点施加的限制(count和bytes): /zookeeper/quota/test/zookeeper_limits
+ *      （3）节点的当前占用状态： /zookeeper/quota/test/zookeeper_stats
+ *
+ *
  */
 public class Quotas {
 

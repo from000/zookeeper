@@ -88,6 +88,9 @@ import org.slf4j.LoggerFactory;
  * ZeroPad:
  *     0 padded to EOF (filled during preallocation stage)
  * </pre></blockquote>
+ *
+ * 数据日志：
+ *   格式： FileHeader TxnList ZeroPad
  */
 public class FileTxnLog implements TxnLog {
     private static final Logger LOG;
@@ -193,6 +196,8 @@ public class FileTxnLog implements TxnLog {
     }
 
     /**
+     *  追加一个事务日志
+     *
      * append an entry to the transaction log
      * @param hdr the header of the transaction
      * @param txn the transaction part of the entry
@@ -233,6 +238,7 @@ public class FileTxnLog implements TxnLog {
             throw new IOException("Faulty serialization for header " +
                     "and txn");
         }
+        // 写入校验和
         Checksum crc = makeChecksumAlgorithm();
         crc.update(buf, 0, buf.length);
         oa.writeLong(crc.getValue(), "txnEntryCRC");
@@ -390,6 +396,9 @@ public class FileTxnLog implements TxnLog {
 
     /**
      * truncate the current transaction logs
+     *
+     *
+     *
      * @param zxid the zxid to truncate the logs to
      * @return true if successful false if not
      */

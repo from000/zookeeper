@@ -33,6 +33,9 @@ import java.util.List;
  * Each of these MultiHeaders has a type which indicates
  * the type of the following transaction or a negative number if no more transactions
  * are included.
+ *
+ *
+ * 多个请求对象封装
  */
 public class MultiTransactionRecord implements Record, Iterable<Op> {
     private List<Op> ops = new ArrayList<Op>();

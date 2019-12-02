@@ -202,6 +202,14 @@ public class QuorumCnxManager {
             }
         }
 
+        /**
+         * 解析选举服务的初始化信息
+         * @param protocolVersion
+         * @param din 格式 ： protocolVersion+sid+数据长度+addr【host:port】
+         * @return
+         * @throws InitialMessageException
+         * @throws IOException
+         */
         static public InitialMessage parse(Long protocolVersion, DataInputStream din)
             throws InitialMessageException, IOException {
             Long sid;
@@ -210,7 +218,7 @@ public class QuorumCnxManager {
                 throw new InitialMessageException(
                         "Got unrecognized protocol version %s", protocolVersion);
             }
-
+            // 获取client写入的sid
             sid = din.readLong();
 
             int remaining = din.readInt();
@@ -333,6 +341,9 @@ public class QuorumCnxManager {
     /**
      * If this server has initiated the connection, then it gives up on the
      * connection if it loses challenge. Otherwise, it keeps the connection.
+     *
+     *
+     * 本机连接sid的选举服务，如果选举失败关闭连接，否则保持连接
      */
     public void initiateConnection(final Socket sock, final Long sid) {
         try {
@@ -395,7 +406,7 @@ public class QuorumCnxManager {
     }
 
     /**
-     *
+     * 连接sid的选举端口，将sid的响应结果封装成RecvWorker对象
      * @param sock 本机连接sid服务的socket(本机作为客户端)
      * @param sid sid某个服务器
      * @return
@@ -545,11 +556,13 @@ public class QuorumCnxManager {
         InetSocketAddress electionAddr = null;
 
         try {
+            // 协议版本
             protocolVersion = din.readLong();
             if (protocolVersion >= 0) { // this is a server id and not a protocol version
                 sid = protocolVersion;
             } else {
                 try {
+                    // 解析选举的初始化信息（client发送到选举服务器）
                     InitialMessage init = InitialMessage.parse(protocolVersion, din);
                     sid = init.sid;
                     electionAddr = init.electionAddr;
@@ -579,6 +592,8 @@ public class QuorumCnxManager {
         authServer.authenticate(sock, din);
         //If wins the challenge, then close the new connection.
         if (sid < self.getId()) {
+
+            // 如果本服务器的sid更大，说明跟其他服务器比较,本服务器获胜，不用处理该服务器的leader申请信息
             /*
              * This replica might still believe that the connection to sid is
              * up, so we have to shut down the workers before trying to open a
@@ -595,6 +610,7 @@ public class QuorumCnxManager {
             LOG.debug("Create new connection to server: {}", sid);
             closeSocket(sock);
 
+            // din是其他服务器请求本服务器的选举服务，里面包含其他服务器的选举服务地址
             if (electionAddr != null) {
                 connectOne(sid, electionAddr);
             } else {
@@ -602,12 +618,14 @@ public class QuorumCnxManager {
             }
 
         } else { // Otherwise start worker threads to receive data.
+
+            // 如果其他服务器的sid更大，说明本服务器没有竞争leader的权利，所以需要建立和该服务器的sendWorker和recvWorker线程处理请求
             SendWorker sw = new SendWorker(sock, sid);
             RecvWorker rw = new RecvWorker(sock, din, sid, sw);
             sw.setRecv(rw);
 
             SendWorker vsw = senderWorkerMap.get(sid);
-
+            // 如果sid存在旧的sendWorker就将其置为完成
             if (vsw != null) {
                 vsw.finish();
             }
@@ -771,6 +789,8 @@ public class QuorumCnxManager {
     /**
      * Try to establish a connection with each server if one
      * doesn't exist.
+     *
+     * 尝试连接所有zk集群服务器
      */
 
     public void connectAll(){
@@ -884,6 +904,8 @@ public class QuorumCnxManager {
 
     /**
      * Thread to listen on some port
+     * 启动并监听本机的选举端口
+     *
      */
     public class Listener extends ZooKeeperThread {
 
@@ -924,6 +946,8 @@ public class QuorumCnxManager {
 
         /**
          * Sleeps on accept().
+         *
+         * 启动本机选举服务并接收客户端连接
          */
         @Override
         public void run() {
@@ -946,11 +970,13 @@ public class QuorumCnxManager {
                     ss.setReuseAddress(true);
                     // 获取选举地址
                     if (self.getQuorumListenOnAllIPs()) {
+                        // 以设置的ip地址作为选举地址
                         int port = self.getElectionAddress().getPort();
                         addr = new InetSocketAddress(port);
                     } else {
                         // Resolve hostname for this server in case the
                         // underlying ip address has changed.
+                        // 解析dns上对应的选举地址
                         self.recreateSocketAddresses(self.getId());
                         addr = self.getElectionAddress();
                     }
@@ -973,6 +999,7 @@ public class QuorumCnxManager {
                             if (quorumSaslAuthEnabled) {
                                 receiveConnectionAsync(client);
                             } else {
+                                // 处理客户端连接，将选举请求放入到sendworker中
                                 receiveConnection(client);
                             }
                             numRetries = 0;
@@ -1093,6 +1120,10 @@ public class QuorumCnxManager {
             return recvWorker;
         }
 
+        /**
+         * 将sendworker置为完成状态，修改相关属性
+         * @return
+         */
         synchronized boolean finish() {
             LOG.debug("Calling finish for " + sid);
 

@@ -136,9 +136,9 @@ public class ClientCnxn {
 
     final String chrootPath;
 
-    final SendThread sendThread;
+    final SendThread sendThread; // 处理准备发送到服务端的数据
 
-    final EventThread eventThread;
+    final EventThread eventThread; // 客户端准备处理的数据
 
     /**
      * Set to true when close is called. Latches the connection such that we
@@ -146,6 +146,7 @@ public class ClientCnxn {
      * connection (client sends session disconnect to server as part of close
      * operation)
      */
+
     private volatile boolean closing = false;
     
     /**
@@ -382,8 +383,12 @@ public class ClientCnxn {
         eventThread.start();
     }
 
+    // 结束事件
     private Object eventOfDeath = new Object();
 
+    /**
+     * 封装事件(一个)和多个watcher对象
+     */
     private static class WatcherSetEventPair {
         private final Set<Watcher> watchers;
         private final WatchedEvent event;
@@ -450,10 +455,11 @@ public class ClientCnxn {
                 watchers = new HashSet<Watcher>();
                 watchers.addAll(materializedWatchers);
             }
+            // 一个事件多个watcher对象封装
             WatcherSetEventPair pair = new WatcherSetEventPair(watchers, event);
             // queue the pair (watch set & event) for later processing
 
-            // 放入等待事件处理队列中
+            // 放入等待事件处理队列中（本线程的run会定期处理等待队列中的事件）
             waitingEvents.add(pair);
         }
 
@@ -484,10 +490,12 @@ public class ClientCnxn {
            try {
               isRunning = true;
               while (true) {
+                  // 从等待线程中获取事件（先进先出）
                  Object event = waitingEvents.take();
                  if (event == eventOfDeath) {
                     wasKilled = true;
                  } else {
+                     // 如果不是结束事件，处理事件
                     processEvent(event);
                  }
                  if (wasKilled)
@@ -509,10 +517,12 @@ public class ClientCnxn {
        private void processEvent(Object event) {
           try {
               if (event instanceof WatcherSetEventPair) {
+                  // 存在多个watcher
                   // each watcher will process the event
                   WatcherSetEventPair pair = (WatcherSetEventPair) event;
                   for (Watcher watcher : pair.watchers) {
                       try {
+                          // 多个watcher处理该事件
                           watcher.process(pair.event);
                       } catch (Throwable t) {
                           LOG.error("Error while calling watcher ", t);
@@ -673,6 +683,7 @@ public class ClientCnxn {
         if (p.watchDeregistration != null) {
             Map<EventType, Set<Watcher>> materializedWatchers = null;
             try {
+                // 移除监听器（watcher）
                 materializedWatchers = p.watchDeregistration.unregister(err);
                 for (Entry<EventType, Set<Watcher>> entry : materializedWatchers
                         .entrySet()) {
@@ -704,7 +715,7 @@ public class ClientCnxn {
     }
 
     /**
-     * 使用线程处理事件
+     * 通知客户端处理事件
      * @param clientPath
      * @param err
      * @param materializedWatchers
@@ -727,13 +738,14 @@ public class ClientCnxn {
     }
 
     /**
-     * 将异常state封装成packet对象
+     * 将连接异常state封装成packet对象，
      * @param p
      */
     private void conLossPacket(Packet p) {
         if (p.replyHeader == null) {
             return;
         }
+        // 设置packet的响应头信息
         switch (state) {
         case AUTH_FAILED:
             p.replyHeader.setErr(KeeperException.Code.AUTHFAILED.intValue());
@@ -845,6 +857,8 @@ public class ClientCnxn {
                 event.deserialize(bbia, "response");
 
                 // convert from a server path to a client path
+
+                // serverPath转化为clientPath
                 if (chrootPath != null) {
                     String serverPath = event.getPath();
                     if(serverPath.compareTo(chrootPath)==0)
@@ -949,6 +963,8 @@ public class ClientCnxn {
 
         /**
          * Setup session, previous watches, authentication.
+         *
+         * 初始化连接，将session，watcher set,认证请求添加到outgoingQueue,等待发送到服务端
          */
         void primeConnection() throws IOException {
             LOG.info("Socket connection established, initiating session, client: {}, server: {}",
@@ -982,6 +998,8 @@ public class ClientCnxn {
 
                         // Note, we may exceed our max length by a bit when we add the last
                         // watch in the batch. This isn't ideal, but it makes the code simpler.
+
+                        // 发送所有的watcher set
                         while (batchLength < SET_WATCHES_MAX_LENGTH) {
                             final String watch;
                             if (dataWatchesIter.hasNext()) {
@@ -1004,6 +1022,7 @@ public class ClientCnxn {
                                                        existWatchesBatch,
                                                        childWatchesBatch);
                         RequestHeader header = new RequestHeader(-8, OpCode.setWatches);
+                        // watcher set请求
                         Packet packet = new Packet(header, new ReplyHeader(), sw, null, null);
                         outgoingQueue.addFirst(packet);
                     }
@@ -1011,12 +1030,16 @@ public class ClientCnxn {
             }
 
             for (AuthData id : authInfo) {
+                // 添加认证请求
                 outgoingQueue.addFirst(new Packet(new RequestHeader(-4,
                         OpCode.auth), null, new AuthPacket(0, id.scheme,
                         id.data), null, null));
             }
+            // 添加链接请求
             outgoingQueue.addFirst(new Packet(null, null, conReq,
                     null, null, readOnly));
+
+            // 表明已经连接成功，客户端socket可以进行读写操作
             clientCnxnSocket.connectionPrimed();
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Session establishment request sent on "
@@ -1099,6 +1122,7 @@ public class ClientCnxn {
                     saslLoginFailed = true;
                 }
             }
+            // 记录日志
             logStartConnect(addr);
 
             clientCnxnSocket.connect(addr);
@@ -1143,6 +1167,8 @@ public class ClientCnxn {
 
                     if (state.isConnected()) {
                         // determine whether we need to send an AuthFailed event.
+
+                        // 如果需要认证
                         if (zooKeeperSaslClient != null) {
                             boolean sendAuthEvent = false;
                             if (zooKeeperSaslClient.getSaslState() == ZooKeeperSaslClient.SaslState.INITIAL) {
@@ -1167,6 +1193,7 @@ public class ClientCnxn {
                                 }
                             }
 
+                            // 发送认证事件
                             if (sendAuthEvent) {
                                 eventThread.queueEvent(new WatchedEvent(
                                       Watcher.Event.EventType.None,
@@ -1213,6 +1240,8 @@ public class ClientCnxn {
 
 
                     // If we are in read-only mode, seek for read/write server
+
+                    // 如果是仅读模式，寻找读写服务器
                     if (state == States.CONNECTEDREADONLY) {
                         long now = Time.currentElapsedTime();
                         int idlePingRwServer = (int) (now - lastPingRwServer);
@@ -1543,6 +1572,16 @@ public class ClientCnxn {
         return submitRequest(h, request, response, watchRegistration, null);
     }
 
+    /**
+     * 提交请求
+     * @param h
+     * @param request
+     * @param response
+     * @param watchRegistration
+     * @param watchDeregistration
+     * @return
+     * @throws InterruptedException
+     */
     public ReplyHeader submitRequest(RequestHeader h, Record request,
             Record response, WatchRegistration watchRegistration,
             WatchDeregistration watchDeregistration)
