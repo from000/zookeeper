@@ -56,6 +56,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
  * server states that includes the sessions, datatree and the
  * committed logs. It is booted up  after reading the logs
  * and snapshots from the disk.
+ *
+ * zookeeper的内存数据库
  */
 public class ZKDatabase {
 

@@ -18,6 +18,12 @@
 
 package org.apache.zookeeper.server;
 
+import org.apache.jute.BinaryInputArchive;
+import org.apache.jute.InputArchive;
+import org.apache.yetus.audience.InterfaceAudience;
+import org.apache.zookeeper.data.StatPersisted;
+import org.apache.zookeeper.server.persistence.FileSnap;
+
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -29,14 +35,10 @@ import java.util.Set;
 import java.util.zip.Adler32;
 import java.util.zip.CheckedInputStream;
 
-import org.apache.jute.BinaryInputArchive;
-import org.apache.jute.InputArchive;
-import org.apache.yetus.audience.InterfaceAudience;
-import org.apache.zookeeper.data.StatPersisted;
-import org.apache.zookeeper.server.persistence.FileSnap;
-
 /**
  * Dump a snapshot file to stdout.
+ *
+ * 格式化快照
  */
 @InterfaceAudience.Public
 public class SnapshotFormatter {

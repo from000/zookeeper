@@ -23,11 +23,13 @@ import org.slf4j.LoggerFactory;
 /**
  * Represents critical thread. When there is an uncaught exception thrown by the
  * thread this will exit the system.
+ *
+ * 处理存在严重问题的线程，主要是修改线程的异常处理
  */
 public class ZooKeeperCriticalThread extends ZooKeeperThread {
     private static final Logger LOG = LoggerFactory
             .getLogger(ZooKeeperCriticalThread.class);
-    private final ZooKeeperServerListener listener;
+    private final ZooKeeperServerListener listener; // zookeeper服务监听器
 
     public ZooKeeperCriticalThread(String threadName, ZooKeeperServerListener listener) {
         super(threadName);
@@ -46,6 +48,7 @@ public class ZooKeeperCriticalThread extends ZooKeeperThread {
     @Override
     protected void handleException(String threadName, Throwable e) {
         LOG.error("Severe unrecoverable error, from thread : {}", threadName, e);
+        // 通知已经停止运行
         listener.notifyStopping(threadName, ExitCode.UNEXPECTED_ERROR.getValue());
     }
 }

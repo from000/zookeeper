@@ -28,6 +28,9 @@ import org.apache.zookeeper.server.quorum.QuorumPacket;
  * Trace messages go to the log with TRACE level.
  * <p>
  * Log4j must be correctly configured to capture the TRACE messages.
+ *
+ *
+ * zookeeper trace级别日志管理
  */
 public class ZooTrace {
     final static public long CLIENT_REQUEST_TRACE_MASK = 1 << 1;

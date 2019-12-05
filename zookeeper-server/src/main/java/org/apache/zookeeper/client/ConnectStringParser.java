@@ -46,7 +46,7 @@ public final class ConnectStringParser {
     private final ArrayList<InetSocketAddress> serverAddresses = new ArrayList<InetSocketAddress>();
 
     /**
-     * 
+     * 举例：10.10.10.1,10.10.10.2/hallo/welt
      * @throws IllegalArgumentException
      *             for an invalid chroot path.
      */

@@ -28,7 +28,7 @@ import java.util.Set;
  * has set a watch on. This class is immutable.
  */
 public class WatchesReport {
-
+    // sessionId -> path集合
     private final Map<Long, Set<String>> id2paths;
 
     /**

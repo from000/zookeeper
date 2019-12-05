@@ -38,7 +38,7 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 
 /**
- * 4字命令
+ * 4字命令,测试时使用
  */
 @InterfaceAudience.Public
 public class FourLetterWordMain {

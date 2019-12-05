@@ -18,6 +18,16 @@
 
 package org.apache.zookeeper.server;
 
+import org.apache.jute.BinaryInputArchive;
+import org.apache.jute.Record;
+import org.apache.yetus.audience.InterfaceAudience;
+import org.apache.zookeeper.server.persistence.FileHeader;
+import org.apache.zookeeper.server.persistence.FileTxnLog;
+import org.apache.zookeeper.server.util.SerializeUtils;
+import org.apache.zookeeper.txn.TxnHeader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.EOFException;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -26,16 +36,12 @@ import java.util.Date;
 import java.util.zip.Adler32;
 import java.util.zip.Checksum;
 
-import org.apache.jute.BinaryInputArchive;
-import org.apache.jute.Record;
-import org.apache.yetus.audience.InterfaceAudience;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.apache.zookeeper.server.persistence.FileHeader;
-import org.apache.zookeeper.server.persistence.FileTxnLog;
-import org.apache.zookeeper.server.util.SerializeUtils;
-import org.apache.zookeeper.txn.TxnHeader;
-
+/**
+ * 查看事务日志
+ *
+ * 使用方式：
+ *  java -classpath .:slf4j-api-1.6.1.jar:zookeeper-x.x.x.jar org.apache.zookeeper.server.LogFormatter /tmp/zookeeper/logs/version-2/log.1000003d2 
+ */
 @InterfaceAudience.Public
 public class LogFormatter {
     private static final Logger LOG = LoggerFactory.getLogger(LogFormatter.class);

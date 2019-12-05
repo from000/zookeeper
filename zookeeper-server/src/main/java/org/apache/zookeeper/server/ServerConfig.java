@@ -31,6 +31,8 @@ import java.util.Arrays;
  *
  * We use this instead of Properties as it's typed.
  *
+ * 服务端配置对象
+ *
  */
 @InterfaceAudience.Public
 public class ServerConfig {

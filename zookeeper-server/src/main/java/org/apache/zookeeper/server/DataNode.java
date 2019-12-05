@@ -37,7 +37,7 @@ import org.apache.zookeeper.data.StatPersisted;
  * array of ACLs, a stat object, and a set of its children's paths.
  *
  *
- * zookeeper带有权限的数据树
+ * zookeeper带有权限的数据节点，包含数据，权限，节点状态等
  * 
  */
 @SuppressFBWarnings("EI_EXPOSE_REP2")
@@ -53,7 +53,7 @@ public class DataNode implements Record {
     /**
      * the stat for this node that is persisted to disk.
      */
-    public StatPersisted stat; // 节点类型
+    public StatPersisted stat; // 节点状态
 
     /**
      * the list of children for this node. note that the list of children string

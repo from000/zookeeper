@@ -22,6 +22,9 @@ import java.util.Map;
 
 /**
  * A summary of watch information. This class is immutable.
+ *
+ *
+ * watcher的统计对象
  */
 public class WatchesSummary {
 

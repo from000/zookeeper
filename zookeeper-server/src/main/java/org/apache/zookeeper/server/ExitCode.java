@@ -19,6 +19,8 @@ package org.apache.zookeeper.server;
 
 /**
  * Exit code used to exit server
+ *
+ * 服务退出码
  */
 public enum ExitCode {
 

@@ -17,14 +17,17 @@
  */
 package org.apache.zookeeper.cli;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Id;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * a parser for ACL strings
+ *
+ * 参考地址： https://blog.csdn.net/liuxiao723846/article/details/79391650
  */
 public class AclParser {
 
@@ -77,5 +80,14 @@ public class AclParser {
             }
         }
         return perm;
+    }
+
+
+    public static void main(String[] args) {
+        // scheme=world
+        // id=anyone
+        // perm=cr
+        List<ACL> aclList = AclParser.parse("world:anyone:cr");
+        System.out.println(aclList);
     }
 }

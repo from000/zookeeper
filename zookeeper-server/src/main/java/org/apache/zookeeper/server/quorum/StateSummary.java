@@ -21,6 +21,8 @@ package org.apache.zookeeper.server.quorum;
 /**
  * This class encapsulates the state comparison logic. Specifically,
  * how two different states are compared.
+ *
+ * 状态比较对象
  */
 public class StateSummary {
 	private long currentEpoch;

@@ -18,15 +18,17 @@
 
 package org.apache.zookeeper.server.command;
 
-import java.io.PrintWriter;
-
 import org.apache.zookeeper.server.ServerCnxn;
 import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.ZooKeeperServer;
 
+import java.io.PrintWriter;
+
 public class CommandExecutor {
     /**
      * This class decides which command to be executed and then executes
+     *
+     * 执行zk的四字命令
      */
     public boolean execute(ServerCnxn serverCnxn, PrintWriter pwriter,
             final int commandCode, ZooKeeperServer zkServer, ServerCnxnFactory factory) {
@@ -42,6 +44,13 @@ public class CommandExecutor {
         return true;
     }
 
+    /**
+     * 根据命令的code获取对应的四字命令对象
+     * @param serverCnxn
+     * @param pwriter
+     * @param commandCode
+     * @return
+     */
     private AbstractFourLetterCommand getCommand(ServerCnxn serverCnxn,
             PrintWriter pwriter, final int commandCode) {
         AbstractFourLetterCommand command = null;

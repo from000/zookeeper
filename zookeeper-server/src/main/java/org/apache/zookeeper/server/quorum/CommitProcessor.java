@@ -19,18 +19,14 @@
 package org.apache.zookeeper.server.quorum;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.LinkedBlockingQueue;
-
+import org.apache.zookeeper.ZooDefs.OpCode;
+import org.apache.zookeeper.server.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.zookeeper.ZooDefs.OpCode;
-import org.apache.zookeeper.server.Request;
-import org.apache.zookeeper.server.RequestProcessor;
-import org.apache.zookeeper.server.WorkerService;
-import org.apache.zookeeper.server.ZooKeeperCriticalThread;
-import org.apache.zookeeper.server.ZooKeeperServerListener;
+
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * This RequestProcessor matches the incoming committed requests with the
@@ -64,6 +60,8 @@ import org.apache.zookeeper.server.ZooKeeperServerListener;
  *
  * The current implementation solves the third constraint by simply allowing no
  * read requests to be processed in parallel with write requests.
+ *
+ * 这个processor主要负责将已经完成本机submit的request和已经在集群中达成commit（即收到过半follower的proposal ack）的request匹配，并将匹配后的request交给nextProcessor（对于leader来说是ToBeAppliedRequestProcessor）处理。
  */
 public class CommitProcessor extends ZooKeeperCriticalThread implements
         RequestProcessor {
@@ -80,13 +78,13 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
      * Requests that we are holding until the commit comes in.
      */
     protected final LinkedBlockingQueue<Request> queuedRequests =
-        new LinkedBlockingQueue<Request>();
+        new LinkedBlockingQueue<Request>(); // 已经发出提议等待收到过半服务器ack的请求队列
 
     /**
      * Requests that have been committed.
      */
     protected final LinkedBlockingQueue<Request> committedRequests =
-        new LinkedBlockingQueue<Request>();
+        new LinkedBlockingQueue<Request>(); // 已经收到过半服务器ack的请求队列，意味着该请求可以被提交了。
 
     /** Request for which we are currently awaiting a commit */
     protected final AtomicReference<Request> nextPending =

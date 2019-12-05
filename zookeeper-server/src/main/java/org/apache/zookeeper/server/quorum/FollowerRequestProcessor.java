@@ -18,9 +18,6 @@
 
 package org.apache.zookeeper.server.quorum;
 
-import java.io.IOException;
-import java.util.concurrent.LinkedBlockingQueue;
-
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.Request;
@@ -31,9 +28,24 @@ import org.apache.zookeeper.txn.ErrorTxn;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.util.concurrent.LinkedBlockingQueue;
+
 /**
  * This RequestProcessor forwards any requests that modify the state of the
  * system to the Leader.
+ *
+ * FollowerRequestProcessor是Follower的request processor链条中的第一个，它的主要作用就是把读操作发送到后面的processor来处理，并把写操作封装成为Request请求发送给Leader来处理
+
+  
+
+ FollowerRequestProcessor是一个异步处理的processor，调用processRequest只是把请求发到queuedRequests队列中，真正的处理是在线程中：
+
+ 把请求交给后面的CommitProcessor处理，这里有两类请求：
+ 如果是读请求，则CommitProcessor会继续交给FinalRequestProcessor处理，把数据读取后并返回响应包
+ 如果是写请求，则CommitProcessor会把request缓存到queuedRequests中，等待Leader发送commit请求之后再交给FinalRequestProcessor来修改本地内存状态
+ 对于写操作，调用zks.getFollower().request(request)方法，它实际是吧request封装成一个REQUEST类型的包，发给Leader后等待Leader的响应
+ 参考地址： https://blog.csdn.net/vinowan/article/details/22197557
  */
 public class FollowerRequestProcessor extends ZooKeeperCriticalThread implements
         RequestProcessor {

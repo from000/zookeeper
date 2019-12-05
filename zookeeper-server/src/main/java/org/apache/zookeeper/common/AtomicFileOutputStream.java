@@ -17,14 +17,10 @@
  */
 package org.apache.zookeeper.common;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FilterOutputStream;
-import java.io.IOException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.*;
 
 /*
  * This code is originally from HDFS, see the similarly named files there
@@ -74,13 +70,19 @@ public class AtomicFileOutputStream extends FilterOutputStream {
         out.write(b, off, len);
     }
 
+    /**
+     * 关闭时将tmp文件直接转为原命名文件
+     * @throws IOException
+     */
     @Override
     public void close() throws IOException {
         boolean triedToClose = false, success = false;
         try {
+            // 参考地址： https://blog.csdn.net/dreamsky1989/article/details/7456875
             flush();
             ((FileOutputStream) out).getFD().sync();
 
+            // 表示已经尝试关闭成功
             triedToClose = true;
             super.close();
             success = true;

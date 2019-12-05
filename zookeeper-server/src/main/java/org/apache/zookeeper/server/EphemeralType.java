@@ -61,6 +61,9 @@ import java.util.Map;
  * denoted specially. An ephemeral owner with only the high bit set (<code>0x8000000000000000L</code>) is by definition
  * a container node (irrespective of whether or not extended types are enabled).
  * </p>
+ *
+ *
+ *
  */
 public enum EphemeralType {
     /**

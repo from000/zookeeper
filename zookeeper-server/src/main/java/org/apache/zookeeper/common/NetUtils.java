@@ -24,6 +24,8 @@ import java.net.InetSocketAddress;
 
 /**
  * This class contains common utilities for netstuff. Like printing IPv6 literals correctly
+ *
+ * 网络工具类
  */
 public class NetUtils {
 
@@ -33,8 +35,8 @@ public class NetUtils {
         if (ia == null) {
             return String.format("%s:%s", addr.getHostString(), addr.getPort());
         }
-
         if (ia instanceof Inet6Address) {
+            // ipv6 格式化打印
             return String.format("[%s]:%s", ia.getHostAddress(), addr.getPort());
         } else {
             return String.format("%s:%s", ia.getHostAddress(), addr.getPort());

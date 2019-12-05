@@ -21,6 +21,9 @@ package org.apache.zookeeper.server;
 import org.apache.zookeeper.common.Time;
 import org.slf4j.Logger;
 
+/**
+ * 限制日志打印速率
+ */
 public class RateLogger {
     public RateLogger(Logger log) {
         LOG = log;
@@ -29,7 +32,7 @@ public class RateLogger {
     private final Logger LOG;
     private String msg = null;
     private long timestamp;
-    private int count = 0;
+    private int count = 0; // msg日志次数
 
     public void flush() {
         if (msg != null) {

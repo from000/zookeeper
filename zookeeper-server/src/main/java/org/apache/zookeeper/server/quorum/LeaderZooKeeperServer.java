@@ -39,6 +39,9 @@ import java.util.concurrent.TimeUnit;
  * processors: PrepRequestProcessor -> ProposalRequestProcessor ->
  * CommitProcessor -> Leader.ToBeAppliedRequestProcessor ->
  * FinalRequestProcessor
+ *
+ *
+ * leader角色的服务端
  */
 public class LeaderZooKeeperServer extends QuorumZooKeeperServer {
     private ContainerManager containerManager;  // guarded by sync

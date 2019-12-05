@@ -62,6 +62,9 @@ import java.util.Set;
  *  weight.9=1
  * 
  * Note that it is still necessary to define peers using the server keyword.
+ *
+ *
+ * 比QuorumMaj增加权重，
  */
 
 public class QuorumHierarchical implements QuorumVerifier {

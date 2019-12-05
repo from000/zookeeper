@@ -29,6 +29,7 @@ import java.util.Set;
  */
 public class WatchesPathReport {
 
+    // path -> sessionId集合
     private final Map<String, Set<Long>> path2Ids;
 
     /**

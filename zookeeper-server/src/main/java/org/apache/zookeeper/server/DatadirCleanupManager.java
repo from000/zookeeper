@@ -32,6 +32,9 @@ import java.util.concurrent.TimeUnit;
  * 'autopurge.purgeInterval'. It keeps the most recent
  * 'autopurge.snapRetainCount' number of snapshots and corresponding transaction
  * logs.
+ *
+ *
+ * 定期清理快照和事务日志的管理类
  */
 public class DatadirCleanupManager {
 

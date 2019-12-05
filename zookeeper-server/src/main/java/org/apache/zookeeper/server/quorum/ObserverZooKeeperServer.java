@@ -17,21 +17,19 @@
  */
 package org.apache.zookeeper.server.quorum;
 
+import org.apache.zookeeper.server.*;
+import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.apache.zookeeper.server.FinalRequestProcessor;
-import org.apache.zookeeper.server.Request;
-import org.apache.zookeeper.server.RequestProcessor;
-import org.apache.zookeeper.server.SyncRequestProcessor;
-import org.apache.zookeeper.server.ZKDatabase;
-import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
-
 /**
  * A ZooKeeperServer for the Observer node type. Not much is different, but
- * we anticipate specializing the request processors in the future. 
+ * we anticipate specializing the request processors in the future.
+ *
+ * 观察者的服务端
  *
  */
 public class ObserverZooKeeperServer extends LearnerZooKeeperServer {

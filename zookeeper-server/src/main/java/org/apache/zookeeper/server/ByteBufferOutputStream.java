@@ -18,13 +18,15 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
-
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.Record;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+/**
+ * byteBuffer类型的输出流封装（nio使用）
+ */
 public class ByteBufferOutputStream extends OutputStream {
     ByteBuffer bb;
     public ByteBufferOutputStream(ByteBuffer bb) {

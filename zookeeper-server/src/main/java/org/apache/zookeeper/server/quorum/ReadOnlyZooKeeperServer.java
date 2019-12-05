@@ -18,17 +18,11 @@
 
 package org.apache.zookeeper.server.quorum;
 
-import java.io.PrintWriter;
-
 import org.apache.zookeeper.jmx.MBeanRegistry;
-import org.apache.zookeeper.server.DataTreeBean;
-import org.apache.zookeeper.server.FinalRequestProcessor;
-import org.apache.zookeeper.server.PrepRequestProcessor;
-import org.apache.zookeeper.server.RequestProcessor;
-import org.apache.zookeeper.server.ZKDatabase;
-import org.apache.zookeeper.server.ZooKeeperServer;
-import org.apache.zookeeper.server.ZooKeeperServerBean;
+import org.apache.zookeeper.server.*;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
+
+import java.io.PrintWriter;
 
 /**
  * A ZooKeeperServer which comes into play when peer is partitioned from the
@@ -37,6 +31,8 @@ import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
  * <p>
  * The very first processor in the chain of request processors is a
  * ReadOnlyRequestProcessor which drops state-changing requests.
+ *
+ * 只读模式下,Server将会实例化一个临时的此实例,为client服务，比如所有的节点都是处于：LOOKING
  */
 public class ReadOnlyZooKeeperServer extends ZooKeeperServer {
 

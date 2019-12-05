@@ -37,6 +37,9 @@ import java.util.*;
  * Invocation of this class will clean up the datalogdir
  * files and snapdir files keeping the last "-n" snapshot files
  * and the corresponding logs.
+ *
+ *
+ * 清除快照和事务日志
  */
 @InterfaceAudience.Public
 public class PurgeTxnLog {

@@ -18,11 +18,14 @@
 
 package org.apache.zookeeper.server.quorum;
 
+import org.apache.zookeeper.server.quorum.flexible.QuorumVerifier;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 
-import org.apache.zookeeper.server.quorum.flexible.QuorumVerifier;
-
+/**
+ *
+ */
 public class SyncedLearnerTracker {
 
     protected ArrayList<QuorumVerifierAcksetPair> qvAcksetPairs = 
@@ -44,6 +47,10 @@ public class SyncedLearnerTracker {
         return change;
     }
 
+    /**
+     * 检验是否通过本轮选举或事务投票，这里需要注意的是，只要SyncedLearnerTracker缓存的投票验证器QuorumVerifier中有一个没有通过投票，那么会认为本轮投票失败
+     * @return
+     */
     public boolean hasAllQuorums() {
         for (QuorumVerifierAcksetPair qvAckset : qvAcksetPairs) {
             if (!qvAckset.getQuorumVerifier().containsQuorum(qvAckset.getAckset()))
@@ -62,9 +69,12 @@ public class SyncedLearnerTracker {
         return sb.substring(0, sb.length()-1);
     }
 
+    /**
+     * peer被确认对象
+     */
     public static class QuorumVerifierAcksetPair {
-        private final QuorumVerifier qv;
-        private final HashSet<Long> ackset;
+        private final QuorumVerifier qv; // peer校验
+        private final HashSet<Long> ackset; // 确认serverId列表
 
         public QuorumVerifierAcksetPair(QuorumVerifier qv, HashSet<Long> ackset) {                
             this.qv = qv;

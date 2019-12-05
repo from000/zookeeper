@@ -31,12 +31,14 @@ import java.util.Set;
 /**
  * This class implements a validator for majority quorums. The implementation is
  * straightforward.
+ *
+ * 最简单的zk成员校验
  * 
  */
 public class QuorumMaj implements QuorumVerifier {
-    private Map<Long, QuorumServer> allMembers = new HashMap<Long, QuorumServer>();
-    private HashMap<Long, QuorumServer> votingMembers = new HashMap<Long, QuorumServer>();
-    private HashMap<Long, QuorumServer> observingMembers = new HashMap<Long, QuorumServer>();
+    private Map<Long, QuorumServer> allMembers = new HashMap<Long, QuorumServer>();  // 所有成员
+    private HashMap<Long, QuorumServer> votingMembers = new HashMap<Long, QuorumServer>(); // 投票成员
+    private HashMap<Long, QuorumServer> observingMembers = new HashMap<Long, QuorumServer>(); // 观察者成员
     private long version = 0;
     private int half;
 
