@@ -21,6 +21,13 @@ package org.apache.zookeeper.proto;
 
 import org.apache.jute.*;
 import org.apache.yetus.audience.InterfaceAudience;
+
+/**
+ *
+ * 请求头
+ * xid: 客户端发送请求的序号，用于保证响应的顺序
+ * type: 请求的操作类型,如：创建节点（OpCode.create）
+ */
 @InterfaceAudience.Public
 public class RequestHeader implements Record {
   private int xid;

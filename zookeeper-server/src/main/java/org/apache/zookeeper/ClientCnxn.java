@@ -216,31 +216,36 @@ public class ClientCnxn {
      * This class allows us to pass the headers and the relevant records around.
      */
     static class Packet {
+        // 请求头
         RequestHeader requestHeader;
-
+        // 响应头
         ReplyHeader replyHeader;
-
+        // 请求内容
         Record request;
-
+        // 响应内容
         Record response;
 
+        // 序列化请求相关属性
         ByteBuffer bb;
 
         /** Client's view of the path (may differ due to chroot) **/
+        // 客户端路径
         String clientPath;
         /** Servers's view of the path (may differ due to chroot) **/
+        // 服务端路径（如果设置了chroot,serverPath = chroot + clientPath）
         String serverPath;
-
+        // 该packet是否已经处理完成
         boolean finished;
-
+        // 回调
         AsyncCallback cb;
 
         Object ctx;
 
+        // watcher注册器
         WatchRegistration watchRegistration;
-
+        // 是否是仅读请求
         public boolean readOnly;
-
+        // watcher注销器
         WatchDeregistration watchDeregistration;
 
         /** Convenience ctor */
@@ -263,6 +268,9 @@ public class ClientCnxn {
             this.watchRegistration = watchRegistration;
         }
 
+        /**
+         * packet的bb属性主要包含：序列化的requestHeader和request
+         */
         public void createBB() {
             try {
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();

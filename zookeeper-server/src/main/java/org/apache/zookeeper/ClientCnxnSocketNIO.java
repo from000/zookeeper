@@ -108,6 +108,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
             }
         }
         if (sockKey.isWritable()) {
+            // 从outgoingQueue中获取队列的第一个元素
             Packet p = findSendablePacket(outgoingQueue,
                     sendThread.tunnelAuthInProgress());
 
@@ -118,18 +119,23 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     if ((p.requestHeader != null) &&
                             (p.requestHeader.getType() != OpCode.ping) &&
                             (p.requestHeader.getType() != OpCode.auth)) {
+                        // 设置客户端请求序号
                         p.requestHeader.setXid(cnxn.getXid());
                     }
+                    // 设置packet的序列化请求对象
                     p.createBB();
                 }
+                // 向zookeeper的服务端发送请求
                 sock.write(p.bb);
                 if (!p.bb.hasRemaining()) {
                     sentCount.getAndIncrement();
+                    // 移除packet
                     outgoingQueue.removeFirstOccurrence(p);
                     if (p.requestHeader != null
                             && p.requestHeader.getType() != OpCode.ping
                             && p.requestHeader.getType() != OpCode.auth) {
                         synchronized (pendingQueue) {
+                            // 等待队列中添加packet
                             pendingQueue.add(p);
                         }
                     }
@@ -160,6 +166,12 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         }
     }
 
+    /**
+     * 从outgoingQueue取出第一个packet
+     * @param outgoingQueue 等待发送到服务端的packet队列
+     * @param tunneledAuthInProgres
+     * @return
+     */
     private Packet findSendablePacket(LinkedBlockingDeque<Packet> outgoingQueue,
                                       boolean tunneledAuthInProgres) {
         if (outgoingQueue.isEmpty()) {

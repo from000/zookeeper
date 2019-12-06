@@ -540,6 +540,8 @@ public class ZooKeeper implements AutoCloseable {
     }
 
     /**
+     * 注册watcher，主要包含属性： watcher和客户端路径
+     *
      * Register a watcher for a particular path.
      */
     public abstract class WatchRegistration {

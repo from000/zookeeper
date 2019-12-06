@@ -21,6 +21,10 @@ package org.apache.zookeeper.proto;
 
 /**
  * 用于表示响应的状态，并没有携带数据
+ *
+ * xid: 客户端请求序号，用于标识客户端xid序号的响应对象
+ * zxid： 事务id
+ * err: 0表示响应没有出错
  */
 
 import org.apache.jute.*;
