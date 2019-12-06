@@ -38,7 +38,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-
+/**
+ * 管理客户端和服务端的连接（存在多个连接），ServerCnxn仅表示一个客户端和服务端的连接
+ */
 public abstract class ServerCnxnFactory {
 
     public static final String ZOOKEEPER_SERVER_CNXN_FACTORY = "zookeeper.serverCnxnFactory";
@@ -46,6 +48,8 @@ public abstract class ServerCnxnFactory {
     private static final Logger LOG = LoggerFactory.getLogger(ServerCnxnFactory.class);
 
     // Tells whether SSL is enabled on this ServerCnxnFactory
+
+
     protected boolean secure;
 
     /**
@@ -57,9 +61,14 @@ public abstract class ServerCnxnFactory {
     
     public abstract Iterable<ServerCnxn> getConnections();
 
+    /**
+     * 所有的客户端连接数
+     * @return
+     */
     public int getNumAliveConnections() {
         return cnxns.size();
     }
+
 
     public ZooKeeperServer getZooKeeperServer() {
         return zkServer;
@@ -71,6 +80,12 @@ public abstract class ServerCnxnFactory {
      */
     public abstract boolean closeSession(long sessionId);
 
+    /**
+     * 配置服务端地址和最大的客户端连接数
+     * @param addr
+     * @param maxcc
+     * @throws IOException
+     */
     public void configure(InetSocketAddress addr, int maxcc) throws IOException {
         configure(addr, maxcc, false);
     }
@@ -177,13 +192,22 @@ public abstract class ServerCnxnFactory {
     // Construct a ConcurrentHashSet using a ConcurrentHashMap
     protected final Set<ServerCnxn> cnxns = Collections.newSetFromMap(
         new ConcurrentHashMap<ServerCnxn, Boolean>());
+
+    /**
+     * 注销ConnectionBean
+     * @param serverCnxn
+     */
     public void unregisterConnection(ServerCnxn serverCnxn) {
         ConnectionBean jmxConnectionBean = connectionBeans.remove(serverCnxn);
         if (jmxConnectionBean != null){
             MBeanRegistry.getInstance().unregister(jmxConnectionBean);
         }
     }
-    
+
+    /**
+     * 注册ConnectionBean
+     * @param serverCnxn
+     */
     public void registerConnection(ServerCnxn serverCnxn) {
         if (zkServer != null) {
             ConnectionBean jmxConnectionBean = new ConnectionBean(serverCnxn, zkServer);

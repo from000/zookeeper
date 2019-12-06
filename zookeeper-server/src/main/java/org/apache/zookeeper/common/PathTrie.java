@@ -39,6 +39,14 @@ import org.slf4j.LoggerFactory;
  *      (bc)
  *   cf/
  *   (cf)
+ *
+ *
+ *
+ *   字典树完成配额目录的增删查, 在zk中的目录结构为/zookeeper/quota/xxx(可以有多级目录)/zookeeper_limits
+ *   字典树参考： https://www.cnblogs.com/TheRoadToTheGold/p/6290732.html
+ *
+ *
+ *   @see org.apache.zookeeper.Quotas
  */    
 public class PathTrie {
     /**
@@ -52,7 +60,7 @@ public class PathTrie {
     private final TrieNode rootNode ;
     
     static class TrieNode {
-        boolean property = false;
+        boolean property = false;//表示当前节点是否有配额
         final HashMap<String, TrieNode> children;
         TrieNode parent = null;
         /**
@@ -203,18 +211,24 @@ public class PathTrie {
         if (pathComponents.length <= 1) {
             throw new IllegalArgumentException("Invalid path " + path);
         }
+
         for (int i=1; i<pathComponents.length; i++) {
+            // 如果path是 aaa/bbb/ccc，相当于依次处理aaa, bbb, ccc
             part = pathComponents[i];
             if (parent.getChild(part) == null) {
+                // 添加子路径
                 parent.addChild(part, new TrieNode(parent));
             }
             parent = parent.getChild(part);
         }
+        // 表示当前节点的父节点(aaa/bbb)，已经设置了配额
         parent.setProperty(true);
     }
     
     /**
      * delete a path from the trie
+     * 删除字典树路径
+     *
      * @param path the path to be deleted
      */
     public void deletePath(String path) {
@@ -229,6 +243,7 @@ public class PathTrie {
         }
         for (int i=1; i<pathComponents.length; i++) {
             part = pathComponents[i];
+            // 没有节点存在，直接返回
             if (parent.getChild(part) == null) {
                 //the path does not exist 
                 return;
@@ -236,12 +251,17 @@ public class PathTrie {
             parent = parent.getChild(part);
             LOG.info("{}",parent);
         }
+
+        // 递归删除某条字典树路径
         TrieNode realParent  = parent.getParent();
         realParent.deleteChild(part);
     }
     
     /**
      * return the largest prefix for the input path.
+     *
+     * 查找路径的最大前缀
+     *
      * @param path the input path
      * @return the largest prefix for the input path.
      */
@@ -253,6 +273,8 @@ public class PathTrie {
             return path;
         }
         String[] pathComponents = path.split("/");
+
+        // 从根目录查找
         TrieNode parent = rootNode;
         List<String> components = new ArrayList<String>();
         if (pathComponents.length <= 1) {
@@ -263,6 +285,7 @@ public class PathTrie {
         StringBuilder sb = new StringBuilder();
         int lastindex = -1;
         while((i < pathComponents.length)) {
+            // 如果存在子路径，即路径存在重合
             if (parent.getChild(pathComponents[i]) != null) {
                 part = pathComponents[i];
                 parent = parent.getChild(part);

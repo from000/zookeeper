@@ -18,19 +18,6 @@
 
 package org.apache.zookeeper.server.quorum.auth;
 
-import java.io.BufferedOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.net.Socket;
-import java.util.Set;
-
-import javax.security.auth.login.AppConfigurationEntry;
-import javax.security.auth.login.Configuration;
-import javax.security.auth.login.LoginException;
-import javax.security.sasl.SaslException;
-import javax.security.sasl.SaslServer;
-
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.zookeeper.Login;
@@ -39,6 +26,18 @@ import org.apache.zookeeper.server.quorum.QuorumAuthPacket;
 import org.apache.zookeeper.util.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.security.auth.login.AppConfigurationEntry;
+import javax.security.auth.login.Configuration;
+import javax.security.auth.login.LoginException;
+import javax.security.sasl.SaslException;
+import javax.security.sasl.SaslServer;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.Socket;
+import java.util.Set;
 
 public class SaslQuorumAuthServer implements QuorumAuthServer {
 
@@ -71,6 +70,15 @@ public class SaslQuorumAuthServer implements QuorumAuthServer {
         }
     }
 
+    /**
+     *  通过sasl认证learner请求
+     * @param sock
+     *            维护其他服务器的连接对象，用于返回是否出现认证失败
+     *            socket connection to other quorum peer
+     * @param din
+     *            stream used to read auth data send by the quorum learner
+     * @throws SaslException
+     */
     @Override
     public void authenticate(Socket sock, DataInputStream din)
             throws SaslException {
@@ -100,6 +108,8 @@ public class SaslQuorumAuthServer implements QuorumAuthServer {
                 if (!ss.isComplete()) {
                     // limited number of retries.
                     if (++tries > MAX_RETRIES) {
+
+                        // 如果一直认证失败，告诉请求方
                         send(dout, challenge, QuorumAuth.Status.ERROR);
                         LOG.warn("Failed to authenticate using SASL, server addr: {}, retries={} exceeded.",
                                 sock.getRemoteSocketAddress(), tries);
@@ -119,6 +129,7 @@ public class SaslQuorumAuthServer implements QuorumAuthServer {
             try {
                 if (dout != null) {
                     // send error message to the learner
+                    // 认证成功
                     send(dout, new byte[0], QuorumAuth.Status.ERROR);
                 }
             } catch (IOException ioe) {
@@ -153,6 +164,12 @@ public class SaslQuorumAuthServer implements QuorumAuthServer {
         return;
     }
 
+    /**
+     * 解析认证输入流，并反序列化成QuorumAuthPacket对象
+     * @param din
+     * @return
+     * @throws IOException
+     */
     private byte[] receive(DataInputStream din) throws IOException {
         QuorumAuthPacket authPacket = new QuorumAuthPacket();
         BinaryInputArchive bia = BinaryInputArchive.getArchive(din);
@@ -160,6 +177,13 @@ public class SaslQuorumAuthServer implements QuorumAuthServer {
         return authPacket.getToken();
     }
 
+    /**
+     * 发送认证结果
+     * @param dout
+     * @param challenge
+     * @param s
+     * @throws IOException
+     */
     private void send(DataOutputStream dout, byte[] challenge,
             QuorumAuth.Status s) throws IOException {
         BufferedOutputStream bufferedOutput = new BufferedOutputStream(dout);
@@ -172,7 +196,7 @@ public class SaslQuorumAuthServer implements QuorumAuthServer {
         } else {
             authPacket = QuorumAuth.createPacket(s, challenge);
         }
-
+        // 序列化
         boa.writeRecord(authPacket, QuorumAuth.QUORUM_AUTH_MESSAGE_TAG);
         bufferedOutput.flush();
     }

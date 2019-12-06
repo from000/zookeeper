@@ -23,11 +23,17 @@ import java.net.Socket;
 
 /**
  * Interface for quorum learner authentication mechanisms.
+ *
+ * 通过客户端和服务端的角度区分org.apache.zookeeper.server.quorum.auth.QuorumAuthServer
+ * @see QuorumAuthServer
  */
 public interface QuorumAuthLearner {
 
     /**
      * Performs an authentication step for the given socket connection.
+     *
+     *
+     * 作为客户端，认证socket对应的服务端通讯
      *
      * @param sock
      *            socket connection to other quorum peer server

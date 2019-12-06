@@ -173,7 +173,7 @@ public class DataNode implements Record {
         }
         return stat.getEphemeralOwner();
     }
-
+   // ---------------序列化和反序列化-----------------------
     synchronized public void deserialize(InputArchive archive, String tag)
             throws IOException {
         archive.startRecord("node");

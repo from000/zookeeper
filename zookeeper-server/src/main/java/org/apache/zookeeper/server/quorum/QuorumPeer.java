@@ -843,6 +843,8 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         // jetty admin服务
         adminServer = AdminServerFactory.createAdminServer();
         x509Util = new QuorumX509Util();
+
+        // 初始化对象，比如：认证服务
         initialize();
     }
 
@@ -881,7 +883,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     }
 
     /**
-     * 初始化peer,主要是认证服务器和学习者服务器
+     * 初始化peer,主要是认证服务
      * @throws SaslException
      */
     public void initialize() throws SaslException {

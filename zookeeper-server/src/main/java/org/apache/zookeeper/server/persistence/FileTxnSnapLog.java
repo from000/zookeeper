@@ -52,12 +52,17 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FileTxnSnapLog {
     //the direcotry containing the
     //the transaction logs
+    // 数据日志目录
     private final File dataDir;
     //the directory containing the
     //the snapshot directory
+    // 快照目录
     private final File snapDir;
+    // 数据日志对象
     private TxnLog txnLog;
+    // 快照对象
     private SnapShot snapLog;
+    //
     private final boolean trustEmptySnapshot;
     public final static int VERSION = 2;
     public final static String version = "version-";
@@ -79,6 +84,9 @@ public class FileTxnSnapLog {
      * restore to gather information
      * while the data is being
      * restored.
+     *
+     *
+     * 日志数据恢复的监听器
      */
     public interface PlayBackListener {
         void onTxnLoaded(TxnHeader hdr, Record rec);
@@ -86,7 +94,7 @@ public class FileTxnSnapLog {
 
     /**
      *
-     * 创建数据文件（事务）对象和快照文件对象
+     * 创建数据文件（事务）和快照文件
      *
      * the constructor which takes the datadir and
      * snapdir.

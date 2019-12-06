@@ -46,7 +46,7 @@ public class ReferenceCountedACLCache {
 
     final Map<List<ACL>, Long> aclKeyMap =
             new HashMap<List<ACL>, Long>();
-
+    // acl index -> 使用次数
     final Map<Long, AtomicLongWithEquals> referenceCounter =
             new HashMap<Long, AtomicLongWithEquals>();
     private static final long OPEN_UNSAFE_ACL_ID = -1L;
@@ -170,6 +170,10 @@ public class ReferenceCountedACLCache {
         }
     }
 
+    /**
+     * 移除acl的唯一标识，如果referenceCounter中该acl不再使用，就移除该acl
+     * @param acl
+     */
     public synchronized void removeUsage(Long acl) {
         if (acl == OPEN_UNSAFE_ACL_ID) {
             return;

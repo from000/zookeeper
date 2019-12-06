@@ -24,15 +24,21 @@ import java.net.Socket;
 
 /**
  * Interface for quorum server authentication mechanisms.
+ *
+ * zk认证服务
  */
 public interface QuorumAuthServer {
 
     /**
      * Performs an authentication step for the given socket connection.
      *
+     * 作为服务端，处理socket对应的客户端认证信息
+     *
      * @param sock
+     *            维护其他服务器的连接对象，用于返回是否出现认证失败/成功
      *            socket connection to other quorum peer
      * @param din
+     *            已经接收到含有认证信息的输入流，通过解析输入流可以进行认证
      *            stream used to read auth data send by the quorum learner
      * @throws IOException if the server fails to authenticate connecting quorum learner
      */

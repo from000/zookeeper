@@ -18,21 +18,6 @@
 
 package org.apache.zookeeper.server.quorum.auth;
 
-import java.io.BufferedOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.net.Socket;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
-
-import javax.security.auth.Subject;
-import javax.security.auth.login.AppConfigurationEntry;
-import javax.security.auth.login.Configuration;
-import javax.security.auth.login.LoginException;
-import javax.security.sasl.SaslClient;
-import javax.security.sasl.SaslException;
-
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.zookeeper.Login;
@@ -42,6 +27,20 @@ import org.apache.zookeeper.server.quorum.QuorumAuthPacket;
 import org.apache.zookeeper.util.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.security.auth.Subject;
+import javax.security.auth.login.AppConfigurationEntry;
+import javax.security.auth.login.Configuration;
+import javax.security.auth.login.LoginException;
+import javax.security.sasl.SaslClient;
+import javax.security.sasl.SaslException;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.Socket;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 
 public class SaslQuorumAuthLearner implements QuorumAuthLearner {
     private static final Logger LOG = LoggerFactory
@@ -177,6 +176,14 @@ public class SaslQuorumAuthLearner implements QuorumAuthLearner {
         bufferedOutput.flush();
     }
 
+    /**
+     * 作为认证服务的客户端，创建认证token
+     * @param saslToken
+     * @param saslClient
+     * @param login
+     * @return
+     * @throws SaslException
+     */
     // TODO: need to consolidate the #createSaslToken() implementation between ZooKeeperSaslClient#createSaslToken().
     private byte[] createSaslToken(final byte[] saslToken,
             final SaslClient saslClient, final Login login)

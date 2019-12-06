@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
+ * watcher报告对象
+ *
  * A watch report, essentially a mapping of session ID to paths that the session
  * has set a watch on. This class is immutable.
  */
@@ -35,12 +37,17 @@ public class WatchesReport {
      * Creates a new report.
      *
      * @param id2paths map of session IDs to paths that each session has set
-     * a watch on
+     * a watch on 。  映射： sessionId -> paths
      */
     WatchesReport(Map<Long, Set<String>> id2paths) {
         this.id2paths = Collections.unmodifiableMap(deepCopy(id2paths));
     }
 
+    /**
+     * 深度拷贝
+     * @param m
+     * @return
+     */
     private static Map<Long, Set<String>> deepCopy(Map<Long, Set<String>> m) {
         Map<Long, Set<String>> m2 = new HashMap<Long, Set<String>>();
         for (Map.Entry<Long, Set<String>> e : m.entrySet()) {
@@ -62,6 +69,8 @@ public class WatchesReport {
     /**
      * Gets the paths that the given session has set watches on. The returned
      * set is immutable.
+     *
+     * 根据sessionId查找对应的paths
      *
      * @param sessionId session ID
      * @return paths that have watches set by the session, or null if none

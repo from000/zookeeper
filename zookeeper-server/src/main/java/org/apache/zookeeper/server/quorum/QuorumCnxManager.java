@@ -75,6 +75,11 @@ import org.slf4j.LoggerFactory;
  * Although this is not a problem for the leader election, it could be a problem
  * when consolidating peer communication. This is to be verified, though.
  *
+ *
+ * 管理各节点之间的leader选举时的网络通讯,主要包含SendWorker和RecvWorker两个内部类
+ * sendWorker： 用于将自身的投票发送到其他的节点，在本类中使用一个map维护多个节点之间的消息通讯
+ * RecvWorker： 用于处理其他节点发送到本节点的消息
+ *
  */
 
 public class QuorumCnxManager {
@@ -185,6 +190,9 @@ public class QuorumCnxManager {
     /*
      * This class parses the initial identification sent out by peers with their
      * sid & hostname.
+     *
+     *
+     * leader选举时的初始化信息，每个节点都会发送该对象，包含自身的sid和提供的选举地址
      */
     static public class InitialMessage {
         public Long sid;
@@ -805,6 +813,8 @@ public class QuorumCnxManager {
 
     /**
      * Check if all queues are empty, indicating that all messages have been delivered.
+     *
+     * 检查发送到其他服务器的leader选举信息是否全部发出去
      */
     boolean haveDelivered() {
         for (ArrayBlockingQueue<ByteBuffer> queue : queueSendMap.values()) {

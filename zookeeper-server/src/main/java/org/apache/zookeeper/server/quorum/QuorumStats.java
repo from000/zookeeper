@@ -18,6 +18,9 @@
 
 package org.apache.zookeeper.server.quorum;
 
+/**
+ * zk节点统计
+ */
 public class QuorumStats {
     private final Provider provider;
     

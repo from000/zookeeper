@@ -90,12 +90,16 @@ public class DataTree {
     /**
      * This hashtable provides a fast lookup to the datanodes. The tree is the
      * source of truth and is where all the locking occurs
+     *
+     *
+     * path -> Datanode
      */
     private final ConcurrentHashMap<String, DataNode> nodes =
         new ConcurrentHashMap<String, DataNode>();
 
+    // 节点数据watcher
     private final WatchManager dataWatches = new WatchManager();
-
+    // 子节点watcher
     private final WatchManager childWatches = new WatchManager();
 
     /** the root of zookeeper tree */
@@ -134,6 +138,7 @@ public class DataTree {
 
     /**
      * This hashtable lists the paths of the ephemeral nodes of a session.
+     *  sessionId -> paths
      */
     private final Map<Long, HashSet<String>> ephemerals =
         new ConcurrentHashMap<Long, HashSet<String>>();
@@ -173,6 +178,10 @@ public class DataTree {
         return new HashSet<String>(ttls);
     }
 
+    /**
+     * sessionId集合
+     * @return
+     */
     public Collection<Long> getSessions() {
         return ephemerals.keySet();
     }
@@ -278,6 +287,8 @@ public class DataTree {
     /**
      * is the path one of the special paths owned by zookeeper.
      *
+     * 判断是不是zookeeper自身的节点
+     *
      * @param path
      *            the path to be checked
      * @return true if a special path. false if not.
@@ -324,6 +335,8 @@ public class DataTree {
     /**
      * update the count of this stat datanode
      *
+     * 更新配额节点lastPrefix的count数
+     *
      * @param lastPrefix
      *            the path of the node that is quotaed.
      * @param diff
@@ -344,6 +357,7 @@ public class DataTree {
             node.data = updatedStat.toString().getBytes();
         }
         // now check if the counts match the quota
+        // 检查配额的count
         String quotaNode = Quotas.quotaPath(lastPrefix);
         node = nodes.get(quotaNode);
         StatsTrack thisStats = null;
@@ -356,6 +370,7 @@ public class DataTree {
             thisStats = new StatsTrack(new String(node.data));
         }
         if (thisStats.getCount() > -1 && (thisStats.getCount() < updatedStat.getCount())) {
+            // 如果更新之后配额count数超过最大的配额count数，日志警告
             LOG
             .warn("Quota exceeded: " + lastPrefix + " count="
                     + updatedStat.getCount() + " limit="
@@ -364,6 +379,8 @@ public class DataTree {
     }
 
     /**
+     *
+     * 更新配额节点lastPrefix的updateBytes数，逻辑和org.apache.zookeeper.server.DataTree#updateCount(java.lang.String, int)相符
      * update the count of bytes of this stat datanode
      *
      * @param lastPrefix
@@ -435,6 +452,9 @@ public class DataTree {
 
     /**
      * Add a new node to the DataTree.
+     *
+     * 创建节点，修改属性，触发watcher
+     *
      * @param path
      * 			  Path for the new node.
      * @param data
@@ -469,16 +489,18 @@ public class DataTree {
         stat.setVersion(0);
         stat.setAversion(0);
         stat.setEphemeralOwner(ephemeralOwner);
+        // 检查父节点
         DataNode parent = nodes.get(parentName);
         if (parent == null) {
             throw new KeeperException.NoNodeException();
         }
         synchronized (parent) {
             Set<String> children = parent.getChildren();
+            // 如果已经包含该节点
             if (children.contains(childName)) {
                 throw new KeeperException.NodeExistsException();
             }
-
+            // 父节点的cversion加一
             if (parentCVersion == -1) {
                 parentCVersion = parent.stat.getCversion();
                 parentCVersion++;
@@ -488,7 +510,9 @@ public class DataTree {
             Long longval = aclCache.convertAcls(acl);
             DataNode child = new DataNode(data, longval, stat);
             parent.addChild(childName);
+            // 缓存当前节点
             nodes.put(path, child);
+            //
             EphemeralType ephemeralType = EphemeralType.get(ephemeralOwner);
             if (ephemeralType == EphemeralType.CONTAINER) {
                 containers.add(path);
@@ -516,19 +540,24 @@ public class DataTree {
                 // get the parent and add it to the trie
                 pTrie.addPath(parentName.substring(quotaZookeeper.length()));
             }
+            // 更新当前的配额状态
             if (Quotas.statNode.equals(childName)) {
                 updateQuotaForPath(parentName
                         .substring(quotaZookeeper.length()));
             }
         }
         // also check to update the quotas for this node
+
+        // 查询配额节点中匹配的最大前缀，如果匹配成功表示设置了配额
         String lastPrefix = getMaxPrefixWithQuota(path);
         if(lastPrefix != null) {
             // ok we have some match and need to update
             updateCount(lastPrefix, 1);
             updateBytes(lastPrefix, data == null ? 0 : data.length);
         }
+        // 触发数据watcher
         dataWatches.triggerWatch(path, Event.EventType.NodeCreated);
+        // 触发子节点watcher
         childWatches.triggerWatch(parentName.equals("") ? "/" : parentName,
                 Event.EventType.NodeChildrenChanged);
     }
@@ -551,32 +580,40 @@ public class DataTree {
         // The child might already be deleted during taking fuzzy snapshot,
         // but we still need to update the pzxid here before throw exception
         // for no such child
+        // 父节点
         DataNode parent = nodes.get(parentName);
         if (parent == null) {
             throw new KeeperException.NoNodeException();
         }
         synchronized (parent) {
+            // 从父节点删除子路径
             parent.removeChild(childName);
             // Only update pzxid when the zxid is larger than the current pzxid,
             // otherwise we might override higher pzxid set by a following create 
             // Txn, which could cause the cversion and pzxid inconsistent
+
+            // 更新最新的zxid
             if (zxid > parent.stat.getPzxid()) {
                 parent.stat.setPzxid(zxid);
             }
         }
 
+        // 删除该路径节点缓存
         DataNode node = nodes.get(path);
         if (node == null) {
             throw new KeeperException.NoNodeException();
         }
         nodes.remove(path);
         synchronized (node) {
+            // 移除acl使用
             aclCache.removeUsage(node.acl);
         }
 
         // Synchronized to sync the containers and ttls change, probably
         // only need to sync on containers and ttls, will update it in a
         // separate patch.
+
+        // 移除containers,ttls,nodes等属性中该path
         synchronized (parent) {
             long eowner = node.stat.getEphemeralOwner();
             EphemeralType ephemeralType = EphemeralType.get(eowner);
@@ -597,10 +634,13 @@ public class DataTree {
         if (parentName.startsWith(procZookeeper) && Quotas.limitNode.equals(childName)) {
             // delete the node in the trie.
             // we need to update the trie as well
+            // 配额路径字典树移除该路径
             pTrie.deletePath(parentName.substring(quotaZookeeper.length()));
         }
 
         // also check to update the quotas for this node
+
+        // 更新配额
         String lastPrefix = getMaxPrefixWithQuota(path);
         if(lastPrefix != null) {
             // ok we have some match and need to update
@@ -619,11 +659,23 @@ public class DataTree {
         }
         Set<Watcher> processed = dataWatches.triggerWatch(path,
                 EventType.NodeDeleted);
+
+        // 触发watcher
         childWatches.triggerWatch(path, EventType.NodeDeleted, processed);
         childWatches.triggerWatch("".equals(parentName) ? "/" : parentName,
                 EventType.NodeChildrenChanged);
     }
 
+    /**
+     * 设置数据，返回节点状态
+     * @param path
+     * @param data
+     * @param version
+     * @param zxid
+     * @param time
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
     public Stat setData(String path, byte data[], int version, long zxid,
             long time) throws KeeperException.NoNodeException {
         Stat s = new Stat();
@@ -633,19 +685,25 @@ public class DataTree {
         }
         byte lastdata[] = null;
         synchronized (n) {
+            // 上一次path对应的数据
             lastdata = n.data;
             n.data = data;
+            // 修改节点的部分状态
             n.stat.setMtime(time);
             n.stat.setMzxid(zxid);
             n.stat.setVersion(version);
+            // 将节点的属性拷贝到s对象中
             n.copyStat(s);
         }
         // now update if the path is in a quota subtree.
+        // 修改配额
         String lastPrefix = getMaxPrefixWithQuota(path);
         if(lastPrefix != null) {
           this.updateBytes(lastPrefix, (data == null ? 0 : data.length)
               - (lastdata == null ? 0 : lastdata.length));
         }
+
+        // 触发NodeDataChanged watcher
         dataWatches.triggerWatch(path, EventType.NodeDataChanged);
         return s;
     }
@@ -653,6 +711,8 @@ public class DataTree {
     /**
      * If there is a quota set, return the appropriate prefix for that quota
      * Else return null
+     *
+     * 最大的配额前缀路径
      * @param path The ZK path to check for quota
      * @return Max quota prefix, or null if none
      */
@@ -670,6 +730,14 @@ public class DataTree {
         }
     }
 
+    /**
+     * 获取节点数据
+     * @param path
+     * @param stat 最新状态
+     * @param watcher
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
     public byte[] getData(String path, Stat stat, Watcher watcher)
             throws KeeperException.NoNodeException {
         DataNode n = nodes.get(path);
@@ -677,6 +745,7 @@ public class DataTree {
             throw new KeeperException.NoNodeException();
         }
         synchronized (n) {
+            // 修改node的节点状态
             n.copyStat(stat);
             if (watcher != null) {
                 dataWatches.addWatch(path, watcher);
@@ -685,6 +754,13 @@ public class DataTree {
         }
     }
 
+    /**
+     * 设置节点watcher并返回节点的状态
+     * @param path
+     * @param watcher
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
     public Stat statNode(String path, Watcher watcher)
             throws KeeperException.NoNodeException {
         Stat stat = new Stat();
@@ -701,6 +777,14 @@ public class DataTree {
         }
     }
 
+    /**
+     * 返回子节点路径，并设置watcher
+     * @param path
+     * @param stat
+     * @param watcher
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
     public List<String> getChildren(String path, Stat stat, Watcher watcher)
             throws KeeperException.NoNodeException {
         DataNode n = nodes.get(path);
@@ -720,6 +804,14 @@ public class DataTree {
         }
     }
 
+    /**
+     * 设置路径acl,返回节点状态
+     * @param path
+     * @param acl
+     * @param version
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
     public Stat setACL(String path, List<ACL> acl, int version)
             throws KeeperException.NoNodeException {
         Stat stat = new Stat();
@@ -728,6 +820,7 @@ public class DataTree {
             throw new KeeperException.NoNodeException();
         }
         synchronized (n) {
+            // 删除acl
             aclCache.removeUsage(n.acl);
             n.stat.setAversion(version);
             n.acl = aclCache.convertAcls(acl);
@@ -736,6 +829,13 @@ public class DataTree {
         }
     }
 
+    /**
+     * 获取路径的acl
+     * @param path
+     * @param stat
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
     public List<ACL> getACL(String path, Stat stat)
             throws KeeperException.NoNodeException {
         DataNode n = nodes.get(path);
@@ -759,8 +859,9 @@ public class DataTree {
     }
 
     static public class ProcessTxnResult {
+        // 客户端的唯一标识
         public long clientId;
-
+        // 客户端请求标识
         public int cxid;
 
         public long zxid;
@@ -1134,6 +1235,8 @@ public class DataTree {
     /**
      * update the quota for the given path
      *
+     * 更新path的配额状态
+     *
      * @param path
      *            the path to be used
      */
@@ -1157,6 +1260,8 @@ public class DataTree {
 
     /**
      * this method traverses the quota path and update the path trie and sets
+     *
+     * 递归更新配额状态
      *
      * @param path
      */
@@ -1395,6 +1500,14 @@ public class DataTree {
         childWatches.removeWatcher(watcher);
     }
 
+    /**
+     * 设置多个watcher
+     * @param relativeZxid
+     * @param dataWatches 需要监控数据的路径集合
+     * @param existWatches 需要监控存在节点的路径集合
+     * @param childWatches 需要监控子节点的路径集合
+     * @param watcher
+     */
     public void setWatches(long relativeZxid, List<String> dataWatches,
             List<String> existWatches, List<String> childWatches,
             Watcher watcher) {

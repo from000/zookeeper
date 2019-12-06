@@ -21,7 +21,6 @@ package org.apache.zookeeper.server;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.Watcher.Event.EventType;
-import org.apache.zookeeper.Watcher.Event.KeeperState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,12 +41,18 @@ import java.util.Set;
 class WatchManager {
     private static final Logger LOG = LoggerFactory.getLogger(WatchManager.class);
 
+    // path -> watcher集合
     private final HashMap<String, HashSet<Watcher>> watchTable =
         new HashMap<String, HashSet<Watcher>>();
 
+    // watcher -> 路径集合
     private final HashMap<Watcher, HashSet<String>> watch2Paths =
         new HashMap<Watcher, HashSet<String>>();
 
+    /**
+     * 所有的watcher长度
+     * @return
+     */
     synchronized int size(){
         int result = 0;
         for(Set<Watcher> watches : watchTable.values()) {
@@ -56,6 +61,11 @@ class WatchManager {
         return result;
     }
 
+    /**
+     * 路径上添加watcher,修改watchTable和watch2Paths属性
+     * @param path
+     * @param watcher
+     */
     synchronized void addWatch(String path, Watcher watcher) {
         HashSet<Watcher> list = watchTable.get(path);
         if (list == null) {
@@ -76,6 +86,10 @@ class WatchManager {
         paths.add(path);
     }
 
+    /**
+     * 移除watcher
+     * @param watcher
+     */
     synchronized void removeWatcher(Watcher watcher) {
         HashSet<String> paths = watch2Paths.remove(watcher);
         if (paths == null) {
@@ -96,11 +110,21 @@ class WatchManager {
         return triggerWatch(path, type, null);
     }
 
+    /**
+     * 触发watcher
+     * @param path
+     * @param type
+     * @param supress 抑制watcher集合，即属于这个集合中的不会触发watcher执行
+     * @return
+     */
     Set<Watcher> triggerWatch(String path, EventType type, Set<Watcher> supress) {
+        // 封装watchEvent事件
         WatchedEvent e = new WatchedEvent(type,
-                KeeperState.SyncConnected, path);
+                Watcher.Event.KeeperState.SyncConnected, path);
         HashSet<Watcher> watchers;
+        //  修改属性watchTable和watch2Paths
         synchronized (this) {
+            // 移除path对应的watcher集合
             watchers = watchTable.remove(path);
             if (watchers == null || watchers.isEmpty()) {
                 if (LOG.isTraceEnabled()) {
@@ -110,6 +134,7 @@ class WatchManager {
                 }
                 return null;
             }
+            // 遍历所有的watcher,移除watcher对应的path
             for (Watcher w : watchers) {
                 HashSet<String> paths = watch2Paths.get(w);
                 if (paths != null) {
@@ -117,6 +142,8 @@ class WatchManager {
                 }
             }
         }
+
+        // 执行所有的watcher
         for (Watcher w : watchers) {
             if (supress != null && supress.contains(w)) {
                 continue;
@@ -146,6 +173,9 @@ class WatchManager {
     }
 
     /**
+     * 打印watcher列表信息
+     *
+     *
      * String representation of watches. Warning, may be large!
      * @param byPath iff true output watches by paths, otw output
      * watches by connection
@@ -219,13 +249,16 @@ class WatchManager {
 
     /**
      * Returns a watch report.
+     * 创建watchesReport对象
      *
      * @return watch report
      * @see WatchesReport
      */
     synchronized WatchesReport getWatches() {
+        // sessionId -> paths
         Map<Long, Set<String>> id2paths = new HashMap<Long, Set<String>>();
         for (Entry<Watcher, HashSet<String>> e: watch2Paths.entrySet()) {
+            // 针对ServerCnxn
             Long id = ((ServerCnxn) e.getKey()).getSessionId();
             HashSet<String> paths = new HashSet<String>(e.getValue());
             id2paths.put(id, paths);
@@ -248,6 +281,7 @@ class WatchManager {
                 ids.add(((ServerCnxn) watcher).getSessionId());
             }
         }
+        // path -> sessionIds
         return new WatchesPathReport(path2ids);
     }
 

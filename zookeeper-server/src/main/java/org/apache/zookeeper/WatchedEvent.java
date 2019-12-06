@@ -33,9 +33,9 @@ import org.apache.zookeeper.Watcher.Event.KeeperState;
  */
 @InterfaceAudience.Public
 public class WatchedEvent {
-    final private KeeperState keeperState;
-    final private EventType eventType;
-    private String path;
+    final private KeeperState keeperState; // 连接状态
+    final private EventType eventType; // 事件类型
+    private String path; // zk 路径
     
     /**
      * Create a WatchedEvent with specified type, state and path

@@ -27,6 +27,10 @@ import java.nio.channels.FileChannel;
 
 /**
  * 文件的填充对象(txnLog的一部分)
+ *
+ * 磁盘空间预分配：
+ *   可以让文件尽可能的占用连续的磁盘扇区，减少后续写入和读取文件时的磁盘寻道开销；
+     迅速占用磁盘空间，防止使用过程中所需空间不足。
  */
 public class FilePadding {
     private static final Logger LOG;
@@ -76,6 +80,9 @@ public class FilePadding {
      * @throws IOException
      */
     long padFile(FileChannel fileChannel) throws IOException {
+        // 剩余空间是不是不足 4096 字节，是的话就会开始进行文件空间扩容，即在现有文件大小上，将文件
+        // 增加 preAllocSize 大小的空间。不管是第一次预分配还是后面空间不足预分配，申请到的空间
+        // 都是使用0 进行填充。
         long newFileSize = calculateFileSizeWithPadding(fileChannel.position(), currentSize, preAllocSize);
         if (currentSize != newFileSize) {
             fileChannel.write((ByteBuffer) fill.position(0), newFileSize - fill.remaining());

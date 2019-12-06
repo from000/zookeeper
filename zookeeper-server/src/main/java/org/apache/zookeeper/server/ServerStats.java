@@ -30,17 +30,17 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Basic Server Statistics
  *
- * 服务端的统计值
+ * 服务器状态，队列数量，client存活数量等信息属性，函数完成延迟，发送，接收量等信息
  */
 public class ServerStats {
     private static final Logger LOG = LoggerFactory.getLogger(ServerStats.class);
 
-    private long packetsSent;
-    private long packetsReceived;
-    private long maxLatency;
-    private long minLatency = Long.MAX_VALUE;
-    private long totalLatency = 0;
-    private long count = 0;
+    private long packetsSent;//发送包个数
+    private long packetsReceived;//接收个数
+    private long maxLatency;//最长延迟
+    private long minLatency = Long.MAX_VALUE;//最短延迟
+    private long totalLatency = 0;//总延迟
+    private long count = 0;//延迟次数
     private AtomicLong fsyncThresholdExceedCount = new AtomicLong(0);
 
     private final BufferStats clientResponseStats = new BufferStats();
@@ -130,6 +130,11 @@ public class ServerStats {
         return sb.toString();
     }
     // mutators
+
+    /**
+     * 更新延时
+     * @param requestCreateTime
+     */
     synchronized void updateLatency(long requestCreateTime) {
         long latency = Time.currentElapsedTime() - requestCreateTime;
         totalLatency += latency;
@@ -173,6 +178,9 @@ public class ServerStats {
         fsyncThresholdExceedCount.set(0);
     }
 
+    /**
+     * 重置统计
+     */
     synchronized public void reset() {
         resetLatency();
         resetRequestCounters();

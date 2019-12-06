@@ -57,7 +57,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
  * committed logs. It is booted up  after reading the logs
  * and snapshots from the disk.
  *
- * zookeeper的内存数据库
+ * zookeeper的内存数据库（维护FileTxnSnapLog和DataTree）
  */
 public class ZKDatabase {
 
@@ -82,7 +82,7 @@ public class ZKDatabase {
     public static final int commitLogCount = 500;
     protected static int commitLogBuffer = 700;
     protected LinkedList<Proposal> committedLog = new LinkedList<Proposal>();
-    protected ReentrantReadWriteLock logLock = new ReentrantReadWriteLock();
+    protected ReentrantReadWriteLock logLock = new ReentrantReadWriteLock(); // 用于锁定committedLog
     volatile private boolean initialized = false;
 
     /**
@@ -267,13 +267,17 @@ public class ZKDatabase {
      * maintains a list of last <i>committedLog</i>
      *  or so committed requests. This is used for
      * fast follower synchronization.
+     *
+     * 添加提交请求
      * @param request committed request
      */
     public void addCommittedProposal(Request request) {
         WriteLock wl = logLock.writeLock();
         try {
             wl.lock();
+            // 如果达到最大的提交数
             if (committedLog.size() > commitLogCount) {
+                // 移除最前的提交，修改minCommittedLog
                 committedLog.removeFirst();
                 minCommittedLog = committedLog.getFirst().packet.getZxid();
             }
@@ -288,6 +292,7 @@ public class ZKDatabase {
             p.packet = pp;
             p.request = request;
             committedLog.add(p);
+            // 添加提交日志，并修改maxCommittedLog
             maxCommittedLog = p.packet.getZxid();
         } finally {
             wl.unlock();
@@ -308,6 +313,7 @@ public class ZKDatabase {
     public long calculateTxnLogSizeLimit() {
         long snapSize = 0;
         try {
+            // 最近的快照
             File snapFile = snapLog.findMostRecentSnapshot();
             if (snapFile != null) {
                 snapSize = snapFile.length();
@@ -528,6 +534,9 @@ public class ZKDatabase {
 
     /**
      * Truncate the ZKDatabase to the specified zxid
+     * 删除日志到zxid位置
+     *
+     *
      * @param zxid the zxid to truncate zk database to
      * @return true if the truncate is successful and false if not
      * @throws IOException

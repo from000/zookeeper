@@ -28,7 +28,7 @@ import org.apache.yetus.audience.InterfaceAudience;
  * is expected to be an instance of a class that implements Watcher interface.
  *
  *
- * 客户端监听状态和类型
+ * 客户端监听状态和类型，主要的实现是ServerCnxn的子类
  * 
  */
 @InterfaceAudience.Public
@@ -200,5 +200,9 @@ public interface Watcher {
         }
     }
 
+    /**
+     * 执行watcher的核心代码
+     * @param event
+     */
     abstract public void process(WatchedEvent event);
 }
