@@ -126,6 +126,8 @@ public class FileTxnLog implements TxnLog {
     File logDir;
     private final boolean forceSync = !System.getProperty("zookeeper.forceSync", "yes").equals("no");
     long dbId;
+
+    // 正常情况下，操作系统会延时刷入到磁盘，所以需要将文件流记录下来，主动实时刷新到磁盘中
     private LinkedList<FileOutputStream> streamsToFlush =
         new LinkedList<FileOutputStream>();
     File logFileWrite = null;
@@ -172,6 +174,8 @@ public class FileTxnLog implements TxnLog {
 
     /**
      * rollover the current log file to a new one.
+     *
+     * 刷新当前日志流，并创建一个新的
      * @throws IOException
      */
     public synchronized void rollLog() throws IOException {
@@ -197,6 +201,21 @@ public class FileTxnLog implements TxnLog {
 
     /**
      *  追加一个事务日志
+     *  1. 当需要写入事务日志的时候Zookeeper会判断它是否和一个可写入的事务日志相关联，如果关联就写入，如果没有则用该事务的事务ID来创建一个事务日志，同时将这个事务日志对应的文件流放入到一个集合中（streamsToFlush），这个集合中记录的是当前需要强刷数据到磁盘的文件流（因为操作系统通常有延迟写入机制，对于Linux系统强刷等于调用fsync）。
+
+        2. 事务日志文件采用预先分配空间策略，这样为了保证单一事务日志文件所占用的磁盘块是连续的，这也是为了提高性能。当Zookeeper发现当前正在写入的事务日志文件空间不足4KB时，就会启动预先分配空间策略进行扩容。第一次使用事务日志或者事务日志达到切割条数（snapCount参数触发快照）会启动预先分配策略；其他时候只要发现当前使用的事务日志空余不足4KB就进行扩容，扩容时使用0进行填充。
+
+        3. 确保日志文件空间够之后就需要对进行事务序列化操作，最终产生一个字节数组。主要对事务头（TxnHeader）和事务体（Record）进行序列化。
+
+        4. 根据序列化后的字节数据计算一个校验和
+
+        5. 将字节数组和校验写入到文件流中。
+
+        6. 由于该事务日志的文件流在集合中，这时候就会从集合里面取出文件流强刷落盘。
+     *
+     *  可以得出： 日志文件命名 log.hex(_zxid) 【_zxid表示创建日志文件是时hdr.zxid】,
+     *  该文件的第一条记录就是zxid=_zxid的事务记录，以后的记录会往这个文件中追加。所以
+     *  数据文件中的zxid>=_zxid，即一个文件中存在多个zxid对应的记录，而其zxid的最小值是_zxid。
      *
      * append an entry to the transaction log
      * @param hdr the header of the transaction
@@ -216,23 +235,28 @@ public class FileTxnLog implements TxnLog {
         } else {
             lastZxidSeen = hdr.getZxid();
         }
+        // 如果没有日志流
         if (logStream==null) {
            if(LOG.isInfoEnabled()){
                 LOG.info("Creating new log file: " + Util.makeLogName(hdr.getZxid()));
            }
-
            logFileWrite = new File(logDir, Util.makeLogName(hdr.getZxid()));
            fos = new FileOutputStream(logFileWrite);
+           // 创建日志流对象
            logStream=new BufferedOutputStream(fos);
+           // 日志增加序列化
            oa = BinaryOutputArchive.getArchive(logStream);
            FileHeader fhdr = new FileHeader(TXNLOG_MAGIC,VERSION, dbId);
            fhdr.serialize(oa, "fileheader");
            // Make sure that the magic number is written before padding.
+            // 刷新日志(添加了FileHeader)
            logStream.flush();
            filePadding.setCurrentSize(fos.getChannel().position());
            streamsToFlush.add(fos);
         }
+        // 磁盘预分配
         filePadding.padFile(fos.getChannel());
+        // 序列化事务头和记录，得到字节数组
         byte[] buf = Util.marshallTxnEntry(hdr, txn);
         if (buf == null || buf.length == 0) {
             throw new IOException("Faulty serialization for header " +
@@ -289,6 +313,8 @@ public class FileTxnLog implements TxnLog {
     }
 
     /**
+     *
+     * 返回最后一个数据文件中的zxid
      * get the last zxid that was logged in the transaction logs
      * @return the last zxid logged in the transaction logs
      */
@@ -304,7 +330,9 @@ public class FileTxnLog implements TxnLog {
         try {
             FileTxnLog txn = new FileTxnLog(logDir);
             itr = txn.read(maxLog);
+            // 根据append方法可知，文件名中的zxid是整个文件中的起始zxid，最后一条事务记录的zxid,才是最后的zxid
             while (true) {
+                // 遍历找到最后一个zxid
                 if(!itr.next())
                     break;
                 TxnHeader hdr = itr.getHeader();
@@ -331,24 +359,35 @@ public class FileTxnLog implements TxnLog {
     /**
      * commit the logs. make sure that everything hits the
      * disk
+     *
+     * 提交日志并刷新到磁盘中
      */
     public synchronized void commit() throws IOException {
         if (logStream != null) {
+            // 刷新缓冲流
             logStream.flush();
         }
+        //
         for (FileOutputStream log : streamsToFlush) {
+            // 刷新文件流，由于操作系统的原因，使用这个方法写入也是存在延时
             log.flush();
+            // 如果需要强制同步刷新（实时刷新）
             if (forceSync) {
                 long startSyncNS = System.nanoTime();
 
                 FileChannel channel = log.getChannel();
+                // 强制刷新
                 channel.force(false);
-
+                // 实时刷新耗时
                 syncElapsedMS = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startSyncNS);
+                // 如果实时刷新耗时大于同步刷新的警告提示耗时
                 if (syncElapsedMS > fsyncWarningThresholdMS) {
                     if(serverStats != null) {
+                        // 增加统计值
                         serverStats.incrementFsyncThresholdExceedCount();
                     }
+
+                    // 日志警告
                     LOG.warn("fsync-ing the write ahead log in "
                             + Thread.currentThread().getName()
                             + " took " + syncElapsedMS
@@ -358,6 +397,10 @@ public class FileTxnLog implements TxnLog {
                 }
             }
         }
+
+        // 如果需要关闭的文件流集合超过一个就从前依次向后移除元素，并将该文件流关闭直到文件流个数中小于等于1个
+
+        // 文件流集合中可以存在1个的原因是：可能最后一个文件流还要写入数据，如果关闭之后会抛异常。
         while (streamsToFlush.size() > 1) {
             streamsToFlush.removeFirst().close();
         }
@@ -397,7 +440,7 @@ public class FileTxnLog implements TxnLog {
     /**
      * truncate the current transaction logs
      *
-     *
+     * 删除大于zxid的所有数据文件
      *
      * @param zxid the zxid to truncate the logs to
      * @return true if successful false if not
@@ -430,6 +473,9 @@ public class FileTxnLog implements TxnLog {
 
     /**
      * read the header of the transaction file
+     *
+     * 获取FileHeader对象
+     *
      * @param file the transaction file to read
      * @return header that was read from the file
      * @throws IOException
@@ -541,22 +587,24 @@ public class FileTxnLog implements TxnLog {
     }
 
     /**
+     * 事务文件迭代器。隐藏了文件存储结构，多个事务文件等信息，哪怕是跨文件，也只需要使用next()就可以获取下一条事务日志
+     *
      * this class implements the txnlog iterator interface
      * which is used for reading the transaction logs
      */
     public static class FileTxnIterator implements TxnLog.TxnIterator {
         File logDir;
         long zxid;
-        TxnHeader hdr;
-        Record record;
-        File logFile;
-        InputArchive ia;
+        TxnHeader hdr; // 当前的事务头
+        Record record; // 当前的事务记录
+        File logFile; // 当前指向的文件，初始化时，指向的是仅次于zxid的文件
+        InputArchive ia; // 当前文件的序列化输入流
         static final String CRC_ERROR="CRC check failed";
 
         PositionInputStream inputStream=null;
         //stored files is the list of files greater than
         //the zxid we are looking for.
-        private ArrayList<File> storedFiles;
+        private ArrayList<File> storedFiles; // 保存大于等于zxid的文件列表，集合是按照zxid从大到小排列
 
         /**
          * create an iterator over a transaction database directory
@@ -572,9 +620,11 @@ public class FileTxnLog implements TxnLog {
                 throws IOException {
             this.logDir = logDir;
             this.zxid = zxid;
+            // 初始化属性
             init();
 
             if (fastForward && hdr != null) {
+                // 如果小于zxid就一直遍历，直到等于zxid的事务日志位置。
                 while (hdr.getZxid() < zxid) {
                     if (!next())
                         break;
@@ -595,18 +645,24 @@ public class FileTxnLog implements TxnLog {
         /**
          * initialize to the zxid specified
          * this is inclusive of the zxid
+         *
+         *
          * @throws IOException
          */
         void init() throws IOException {
             storedFiles = new ArrayList<File>();
+            // 按照zxid从大到小排序
             List<File> files = Util.sortDataDir(FileTxnLog.getLogFiles(logDir.listFiles(), 0), LOG_FILE_PREFIX, false);
             for (File f: files) {
+                // storedFiles保存大于等于zxid的文件列表
                 if (Util.getZxidFromName(f.getName(), LOG_FILE_PREFIX) >= zxid) {
                     storedFiles.add(f);
                 }
                 // add the last logfile that is less than the zxid
+                // 添加仅此于zxid的数据文件，因为这个文件可能包含zxid=this.zxid的事务日志
                 else if (Util.getZxidFromName(f.getName(), LOG_FILE_PREFIX) < zxid) {
                     storedFiles.add(f);
+                    // 添加一个之后，马上跳出
                     break;
                 }
             }
@@ -626,6 +682,8 @@ public class FileTxnLog implements TxnLog {
         }
 
         /**
+         * 指向下一个日志文件
+         *
          * go to the next logfile
          * @return true if there is one and false if there is no
          * new file to be read
@@ -684,6 +742,8 @@ public class FileTxnLog implements TxnLog {
 
         /**
          * the iterator that moves to the next transaction
+         * 获取下一个事务记录，并赋值到hdr和record属性中
+         *
          * @return true if there is more transactions to be read
          * false if not.
          */
@@ -700,6 +760,7 @@ public class FileTxnLog implements TxnLog {
                 }
                 // EOF or corrupted record
                 // validate CRC
+                // 校验crc
                 Checksum crc = makeChecksumAlgorithm();
                 crc.update(bytes, 0, bytes.length);
                 if (crcValue != crc.getValue())
@@ -714,6 +775,8 @@ public class FileTxnLog implements TxnLog {
                 hdr = null;
                 // this means that the file has ended
                 // we should go to the next file
+
+                // 如果当前文件已经遍历完了，尝试重新遍历一个新的数据文件
                 if (!goToNextLog()) {
                     return false;
                 }

@@ -50,9 +50,19 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+/**
+ * 序列化工具类
+ */
 public class SerializeUtils {
     private static final Logger LOG = LoggerFactory.getLogger(SerializeUtils.class);
-    
+
+    /**
+     * 反序列化成事务记录
+     * @param txnBytes
+     * @param hdr
+     * @return
+     * @throws IOException
+     */
     public static Record deserializeTxn(byte txnBytes[], TxnHeader hdr)
             throws IOException {
         final ByteArrayInputStream bais = new ByteArrayInputStream(txnBytes);
@@ -101,9 +111,11 @@ public class SerializeUtils {
         }
         if (txn != null) {
             try {
+                // 反序列化成指定类型的事务记录
                 txn.deserialize(ia, "txn");
             } catch(EOFException e) {
                 // perhaps this is a V0 Create
+                // 老版本兼容
                 if (hdr.getType() == OpCode.create) {
                     CreateTxn create = (CreateTxn)txn;
                     bais.reset();
@@ -124,6 +136,13 @@ public class SerializeUtils {
         return txn;
     }
 
+    /**
+     * 反序列化快照成dataTree对象和sessions集合
+     * @param dt
+     * @param ia 序列化对象
+     * @param sessions sessionId->timeout集合
+     * @throws IOException
+     */
     public static void deserializeSnapshot(DataTree dt,InputArchive ia,
             Map<Long, Integer> sessions) throws IOException {
         int count = ia.readInt("count");
@@ -142,7 +161,7 @@ public class SerializeUtils {
     }
 
     /**
-     * 序列化快照内容
+     * dataTree对象和sessions集合序列化成快照
      * @param dt
      * @param oa
      * @param sessions
@@ -160,6 +179,11 @@ public class SerializeUtils {
         dt.serialize(oa, "tree");
     }
 
+    /**
+     * 序列化请求对象
+     * @param request
+     * @return
+     */
     public static byte[] serializeRequest(Request request) {
         if (request == null || request.getHdr() == null) return null;
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

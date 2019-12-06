@@ -41,7 +41,7 @@ import java.util.zip.CheckedOutputStream;
  * and deserializing the right snapshot.
  * and provides access to the snapshots.
  *
- * 快照文件独享
+ * 快照文件对象（包含dataTree和session映射）
  */
 public class FileSnap implements SnapShot {
     File snapDir;
@@ -101,7 +101,7 @@ public class FileSnap implements SnapShot {
         if (!foundValid) {
             throw new IOException("Not able to find valid snapshots in " + snapDir);
         }
-        // 最新的zxid
+        // 最新快照的zxid
         dt.lastProcessedZxid = Util.getZxidFromName(snap.getName(), SNAPSHOT_FILE_PREFIX);
         return dt.lastProcessedZxid;
     }

@@ -41,6 +41,7 @@ public class ServerStats {
     private long minLatency = Long.MAX_VALUE;//最短延迟
     private long totalLatency = 0;//总延迟
     private long count = 0;//延迟次数
+    // 超过实时刷新日志数据耗时（可配置）的次数
     private AtomicLong fsyncThresholdExceedCount = new AtomicLong(0);
 
     private final BufferStats clientResponseStats = new BufferStats();

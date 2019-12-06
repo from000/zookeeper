@@ -28,6 +28,8 @@ import java.nio.channels.FileChannel;
 /**
  * 文件的填充对象(txnLog的一部分)
  *
+ * 参考地址：https://www.iteblog.com/archives/2338.html?from=like
+ *
  * 磁盘空间预分配：
  *   可以让文件尽可能的占用连续的磁盘扇区，减少后续写入和读取文件时的磁盘寻道开销；
      迅速占用磁盘空间，防止使用过程中所需空间不足。

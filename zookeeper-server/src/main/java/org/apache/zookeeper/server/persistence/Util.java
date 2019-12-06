@@ -216,6 +216,8 @@ public class Util {
 
     /**
      * Serializes transaction header and transaction data into a byte buffer.
+     *
+     * 序列化事务头/事务记录转为字节数组
      *  
      * @param hdr transaction header
      * @param txn transaction data
