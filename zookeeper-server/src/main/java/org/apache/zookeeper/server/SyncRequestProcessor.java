@@ -34,6 +34,8 @@ import java.util.concurrent.LinkedBlockingQueue;
  *
  * 该处理器将请求存入磁盘，其将请求批量的存入磁盘以提高效率，请求在写入磁盘之前是不会被转发到下个处理器的。
  *
+ * 参考地址： https://blog.csdn.net/weixin_36145588/article/details/77144261
+ *
  * SyncRequestProcessor is used in 3 different cases
  * 1. Leader - Sync request to disk and forward it to AckRequestProcessor which
  *             send ack back to itself.
@@ -51,8 +53,8 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements
     private static final Logger LOG = LoggerFactory.getLogger(SyncRequestProcessor.class);
     private final ZooKeeperServer zks;
     private final LinkedBlockingQueue<Request> queuedRequests =
-        new LinkedBlockingQueue<Request>();
-    private final RequestProcessor nextProcessor;
+        new LinkedBlockingQueue<Request>(); // 等待处理的请求
+    private final RequestProcessor nextProcessor; //下一个处理器
 
     private Thread snapInProcess = null;
     volatile private boolean running;
@@ -61,11 +63,15 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements
      * Transactions that have been written and are waiting to be flushed to
      * disk. Basically this is the list of SyncItems whose callbacks will be
      * invoked after flush returns successfully.
+     *
+     * 还没有flush的请求列表
      */
     private final LinkedList<Request> toFlush = new LinkedList<Request>();
     private final Random r = new Random();
     /**
      * The number of log entries to log before starting a snapshot
+     *
+     * 快照数目
      */
     private static int snapCount = ZooKeeperServer.getSnapCount();
 
@@ -107,6 +113,7 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements
             int randRoll = r.nextInt(snapCount/2);
             while (true) {
                 Request si = null;
+                // 从请求处理队列中，拿出一个请求
                 if (toFlush.isEmpty()) {
                     si = queuedRequests.take();
                 } else {
@@ -123,6 +130,7 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements
                     // track the number of records written to the log
                     if (zks.getZKDatabase().append(si)) {
                         logCount++;
+                        // 控制大于某个随机数才写入事务数据和快照，是为了防止多个节点同时同步数据
                         if (logCount > (snapCount / 2 + randRoll)) {
                             randRoll = r.nextInt(snapCount/2);
                             // roll the log
@@ -171,24 +179,36 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements
         LOG.info("SyncRequestProcessor exited!");
     }
 
+    /**
+     * 刷新请求到磁盘
+     * @param toFlush
+     * @throws IOException
+     * @throws RequestProcessorException
+     */
     private void flush(LinkedList<Request> toFlush)
         throws IOException, RequestProcessorException
     {
         if (toFlush.isEmpty())
             return;
-
+        // 将zkDataBase数据库刷新到磁盘
         zks.getZKDatabase().commit();
+
+        // 下一个处理器处理请求对象，知道toFlush集合中没有元素
         while (!toFlush.isEmpty()) {
             Request i = toFlush.remove();
             if (nextProcessor != null) {
                 nextProcessor.processRequest(i);
             }
         }
+        // 如果下一个处理器实现了Flushable接口，也要触发flush方法
         if (nextProcessor != null && nextProcessor instanceof Flushable) {
             ((Flushable)nextProcessor).flush();
         }
     }
 
+    /**
+     * 请求处理器关闭
+     */
     public void shutdown() {
         LOG.info("Shutting down");
         queuedRequests.add(requestOfDeath);
@@ -211,6 +231,10 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements
         }
     }
 
+    /**
+     * 请求处理就是将请求放入到请求处理队列中，异步处理
+     * @param request
+     */
     public void processRequest(Request request) {
         // request.addRQRec(">sync");
         queuedRequests.add(request);

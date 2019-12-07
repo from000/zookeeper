@@ -29,11 +29,12 @@ import java.util.concurrent.ConcurrentMap;
 /**
  * A session tracker that supports upgradeable local sessions.
  *
- * 可升级的会话追踪器
+ * 可升级的会话追踪器··
  */
 public abstract class UpgradeableSessionTracker implements SessionTracker {
     private static final Logger LOG = LoggerFactory.getLogger(UpgradeableSessionTracker.class);
 
+    //sessionId -> timeout
     private ConcurrentMap<Long, Integer> localSessionsWithTimeouts;
     protected LocalSessionTracker localSessionTracker;
 
@@ -59,6 +60,8 @@ public abstract class UpgradeableSessionTracker implements SessionTracker {
     abstract public boolean isGlobalSession(long sessionId);
 
     /**
+     * 将本地的session升级到全局
+     *
      * Upgrades the session to a global session.
      * This simply removes the session from the local tracker and marks
      * it as global.  It is up to the caller to actually

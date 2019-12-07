@@ -18,8 +18,22 @@
 
 package org.apache.zookeeper.server;
 
+import org.apache.jute.BinaryInputArchive;
+import org.apache.jute.Record;
+import org.apache.zookeeper.WatchedEvent;
+import org.apache.zookeeper.data.Id;
+import org.apache.zookeeper.proto.ReplyHeader;
+import org.apache.zookeeper.proto.RequestHeader;
+import org.apache.zookeeper.proto.WatcherEvent;
+import org.apache.zookeeper.server.NIOServerCnxnFactory.SelectorThread;
+import org.apache.zookeeper.server.command.CommandExecutor;
+import org.apache.zookeeper.server.command.FourLetterCommands;
+import org.apache.zookeeper.server.command.NopCommand;
+import org.apache.zookeeper.server.command.SetTraceMaskCommand;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedWriter;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -35,25 +49,12 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.jute.BinaryInputArchive;
-import org.apache.jute.BinaryOutputArchive;
-import org.apache.jute.Record;
-import org.apache.zookeeper.WatchedEvent;
-import org.apache.zookeeper.data.Id;
-import org.apache.zookeeper.proto.ReplyHeader;
-import org.apache.zookeeper.proto.RequestHeader;
-import org.apache.zookeeper.proto.WatcherEvent;
-import org.apache.zookeeper.server.NIOServerCnxnFactory.SelectorThread;
-import org.apache.zookeeper.server.command.CommandExecutor;
-import org.apache.zookeeper.server.command.FourLetterCommands;
-import org.apache.zookeeper.server.command.SetTraceMaskCommand;
-import org.apache.zookeeper.server.command.NopCommand;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * This class handles communication with clients using NIO. There is one per
  * client, but only one thread doing the communication.
+ *
+ *
+ * 参考地址： https://blog.csdn.net/jpf254/article/details/80792086
  */
 public class NIOServerCnxn extends ServerCnxn {
     private static final Logger LOG = LoggerFactory.getLogger(NIOServerCnxn.class);
@@ -81,6 +82,8 @@ public class NIOServerCnxn extends ServerCnxn {
 
     /**
      * The number of requests that have been submitted but not yet responded to.
+     *
+     * 已经提交的请求数
      */
     private final AtomicInteger outstandingRequests = new AtomicInteger(0);
 
@@ -127,6 +130,8 @@ public class NIOServerCnxn extends ServerCnxn {
     /**
      * send buffer without using the asynchronous
      * calls to selector and then close the socket
+     *
+     * 同步发送请求
      * @param bb
      */
     void sendBufferSync(ByteBuffer bb) {
@@ -140,6 +145,7 @@ public class NIOServerCnxn extends ServerCnxn {
                    sock.configureBlocking(true);
                    sock.write(bb);
                }
+               // 修改packet发送相关状态
                packetSent();
            }
        } catch (IOException ie) {
@@ -148,8 +154,11 @@ public class NIOServerCnxn extends ServerCnxn {
     }
 
     /**
+     *
+     * 异步发送请求
      * sendBuffer pushes a byte buffer onto the outgoing buffer queue for
      * asynchronous writes.
+     *
      */
     public void sendBuffer(ByteBuffer bb) {
         if (LOG.isTraceEnabled()) {
@@ -160,6 +169,9 @@ public class NIOServerCnxn extends ServerCnxn {
         requestInterestOpsUpdate();
     }
 
+    /**
+     * 读取客户端请求
+     */
     /** Read the request payload (everything following the length prefix) */
     private void readPayload() throws IOException, InterruptedException {
         if (incomingBuffer.remaining() != 0) { // have we read length bytes?
@@ -176,8 +188,10 @@ public class NIOServerCnxn extends ServerCnxn {
             packetReceived();
             incomingBuffer.flip();
             if (!initialized) {
+                // 连接请求处理
                 readConnectRequest();
             } else {
+                // 操作请求处理
                 readRequest();
             }
             lenBuffer.clear();
@@ -308,6 +322,8 @@ public class NIOServerCnxn extends ServerCnxn {
 
     /**
      * Handles read/write IO on connection.
+     *
+     * 处理读写请求
      */
     void doIO(SelectionKey k) throws InterruptedException {
         try {
@@ -336,6 +352,7 @@ public class NIOServerCnxn extends ServerCnxn {
                         isPayload = true;
                     }
                     if (isPayload) { // not the case for 4letterword
+                        // 处理客户端的请求
                         readPayload();
                     }
                     else {
@@ -346,6 +363,7 @@ public class NIOServerCnxn extends ServerCnxn {
                 }
             }
             if (k.isWritable()) {
+                // 处理发送数据到客户端（响应）
                 handleWrite(k);
 
                 if (!initialized && !getReadInterest() && !getWriteInterest()) {

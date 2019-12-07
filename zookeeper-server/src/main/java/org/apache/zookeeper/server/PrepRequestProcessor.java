@@ -105,7 +105,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
      * should never be used otherwise
      */
     private static  boolean failCreate = false;
-
+    // 已经提交的请求队列
     LinkedBlockingQueue<Request> submittedRequests = new LinkedBlockingQueue<Request>();
 
     private final RequestProcessor nextProcessor;
@@ -139,9 +139,11 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
                 if (LOG.isTraceEnabled()) {
                     ZooTrace.logRequest(LOG, traceMask, 'P', request, "");
                 }
+                // 是否是结束请求
                 if (Request.requestOfDeath == request) {
                     break;
                 }
+                // 处理请求
                 pRequest(request);
             }
         } catch (RequestProcessorException e) {
@@ -155,6 +157,12 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
         LOG.info("PrepRequestProcessor exited loop!");
     }
 
+    /**
+     * 获取路径的改变记录，如果在outstandingChangesForPath没有找到，通过zkDatabase获取
+     * @param path
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
     private ChangeRecord getRecordForPath(String path) throws KeeperException.NoNodeException {
         ChangeRecord lastChange = null;
         synchronized (zks.outstandingChanges) {
@@ -183,6 +191,10 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
         }
     }
 
+    /**
+     * 添加改变记录，可以缓存节点记录
+     * @param c
+     */
     private void addChangeRecord(ChangeRecord c) {
         synchronized (zks.outstandingChanges) {
             zks.outstandingChanges.add(c);
@@ -191,6 +203,8 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
     }
 
     /**
+     *
+     * 存储多请求的更改记录
      * Grab current pending change records for each op in a multi-op.
      *
      * This is used inside MultiOp error code path to rollback in the event
@@ -235,6 +249,8 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
     }
 
     /**
+     * 回滚多操作请求
+     *
      * Rollback pending changes records from a failed multi-op.
      *
      * If a multi-op fails, we can't leave any invalid change records we created
@@ -283,6 +299,8 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
 
     /**
      * Grant or deny authorization to an operation on a node as a function of:
+     *
+     * 检查acl
      *
      * @param zks: not used.
      * @param acl:  set of ACLs for the node
@@ -349,6 +367,8 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
      * This method will be called inside the ProcessRequestThread, which is a
      * singleton, so there will be a single thread calling this code.
      *
+     * 主要是检验请求，修改部分请求相关节点记录比如父节点，还有比较重要的是修改改变记录，用于缓存节点最后一次修改
+     *
      * @param type
      * @param zxid
      * @param request
@@ -366,6 +386,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
             case OpCode.create2:
             case OpCode.createTTL:
             case OpCode.createContainer: {
+                // 创建
                 pRequest2TxnCreate(type, request, record, deserialize);
                 break;
             }
@@ -626,6 +647,15 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
         }
     }
 
+    /**
+     * 处理创建请求
+     * @param type
+     * @param request
+     * @param record
+     * @param deserialize
+     * @throws IOException
+     * @throws KeeperException
+     */
     private void pRequest2TxnCreate(int type, Request request, Record record, boolean deserialize) throws IOException, KeeperException {
         if (deserialize) {
             ByteBufferInputStream.byteBuffer2Record(request.request, record);
@@ -653,16 +683,20 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
         }
         CreateMode createMode = CreateMode.fromFlag(flags);
         validateCreateRequest(path, createMode, request, ttl);
+        // 父路径
         String parentPath = validatePathForCreate(path, request.sessionId);
 
         List<ACL> listACL = fixupACL(path, request.authInfo, acl);
+        // 最新的记录
         ChangeRecord parentRecord = getRecordForPath(parentPath);
-
+        // 检查父节点的acl
         checkACL(zks, parentRecord.acl, ZooDefs.Perms.CREATE, request.authInfo);
         int parentCVersion = parentRecord.stat.getCversion();
+        // 如果是有序节点
         if (createMode.isSequential()) {
             path = path + String.format(Locale.ENGLISH, "%010d", parentCVersion);
         }
+        // 校验是否是有效路径
         validatePath(path, request.sessionId);
         try {
             if (getRecordForPath(path) != null) {
@@ -675,6 +709,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
         if (ephemeralParent) {
             throw new KeeperException.NoChildrenForEphemeralsException(path);
         }
+        // 父节点的cversion加一
         int newCversion = parentRecord.stat.getCversion()+1;
         if (type == OpCode.createContainer) {
             request.setTxn(new CreateContainerTxn(path, data, listACL, newCversion));
@@ -685,16 +720,27 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
                     newCversion));
         }
         StatPersisted s = new StatPersisted();
+        // 设置临时节点所属sessionId
         if (createMode.isEphemeral()) {
             s.setEphemeralOwner(request.sessionId);
         }
+        // 父节点记录深拷贝
         parentRecord = parentRecord.duplicate(request.getHdr().getZxid());
+        // 子节点加一
         parentRecord.childCount++;
         parentRecord.stat.setCversion(newCversion);
+        // 缓存父节点改变记录
         addChangeRecord(parentRecord);
+        // 缓存新增节点改变记录
         addChangeRecord(new ChangeRecord(request.getHdr().getZxid(), path, s, 0, listACL));
     }
 
+    /**
+     * 校验路径
+     * @param path
+     * @param sessionId
+     * @throws BadArgumentsException
+     */
     private void validatePath(String path, long sessionId) throws BadArgumentsException {
         try {
             PathUtils.validatePath(path);
@@ -724,6 +770,8 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
     }
 
     /**
+     * 这是处理请求的核心方法，根据不同的请求类型，创建不同的请求对象，并交给pRequest2Txn处理
+     *
      * This method will be called inside the ProcessRequestThread, which is a
      * singleton, so there will be a single thread calling this code.
      *
@@ -784,6 +832,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
                 KeeperException ke = null;
 
                 //Store off current pending change records in case we need to rollback
+                // 存储当前挂起的更改记录，以防我们需要回滚
                 Map<String, ChangeRecord> pendingChanges = getPendingChanges(multiRequest);
 
                 for(Op op: multiRequest) {
@@ -820,6 +869,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
                             request.setException(e);
 
                             /* Rollback change records from failed multi-op */
+                            // 回滚
                             rollbackPendingChanges(zxid, pendingChanges);
                         }
                     }
@@ -832,9 +882,11 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
                     txn.serialize(boa, "request") ;
                     ByteBuffer bb = ByteBuffer.wrap(baos.toByteArray());
 
+                    // 添加多个事务
                     txns.add(new Txn(type, bb.array()));
                 }
 
+                // 设置事务头和事务记录
                 request.setHdr(new TxnHeader(request.sessionId, request.cxid, zxid,
                         Time.currentWallTime(), request.type));
                 request.setTxn(new MultiTxn(txns));
@@ -905,6 +957,11 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
         nextProcessor.processRequest(request);
     }
 
+    /**
+     * 移除重复的acl (比如：rrw -> rw)
+     * @param acl
+     * @return
+     */
     private List<ACL> removeDuplicates(List<ACL> acl) {
 
         LinkedList<ACL> retval = new LinkedList<ACL>();
@@ -916,6 +973,14 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
         return retval;
     }
 
+    /**
+     * 校验创建节点请求
+     * @param path
+     * @param createMode
+     * @param request
+     * @param ttl
+     * @throws KeeperException
+     */
     private void validateCreateRequest(String path, CreateMode createMode, Request request, long ttl)
             throws KeeperException {
         if (createMode.isTTL() && !EphemeralType.extendedEphemeralTypesEnabled()) {
@@ -941,6 +1006,9 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
     }
 
     /**
+     *
+     * 修复和校验请求的acl
+     *
      * This method checks out the acl making sure it isn't null or empty,
      * it has valid schemes and ids, and expanding any relative ids that
      * depend on the requestor's authentication information.
@@ -975,12 +1043,14 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
                 // authenticated ids of the requestor
                 boolean authIdValid = false;
                 for (Id cid : authInfo) {
+                    // 获取认证器
                     AuthenticationProvider ap =
                         ProviderRegistry.getProvider(cid.getScheme());
                     if (ap == null) {
                         LOG.error("Missing AuthenticationProvider for "
                             + cid.getScheme());
                     } else if (ap.isAuthenticated()) {
+                        // 如果认证通过，就添加该acl
                         authIdValid = true;
                         rv.add(new ACL(a.getPerms(), cid));
                     }

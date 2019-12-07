@@ -18,13 +18,12 @@
 
 package org.apache.zookeeper.server;
 
+import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.KeeperException.SessionExpiredException;
+
 import java.io.PrintWriter;
 import java.util.Map;
 import java.util.Set;
-
-import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.KeeperException.SessionExpiredException;
-import org.apache.zookeeper.KeeperException.SessionMovedException;
 
 /**
  * This is the basic interface that ZooKeeperServer uses to track sessions. The
@@ -64,6 +63,8 @@ public interface SessionTracker {
     boolean addSession(long id, int to);
 
     /**
+     *
+     * 如果返回false,表示当前sessionId不可用
      * @param sessionId
      * @param sessionTimeout
      * @return false if session is no longer active

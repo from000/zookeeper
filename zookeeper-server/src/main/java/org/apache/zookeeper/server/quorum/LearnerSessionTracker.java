@@ -52,12 +52,14 @@ public class LearnerSessionTracker extends UpgradeableSessionTracker {
 
     private final SessionExpirer expirer;
     // Touch table for the global sessions
+    // sessionId -> timeout
     private final AtomicReference<Map<Long, Integer>> touchTable =
         new AtomicReference<Map<Long, Integer>>();
     private final long serverId;
     private final AtomicLong nextSessionId = new AtomicLong();
 
     private final boolean localSessionsEnabled;
+    // 全局session映射
     private final ConcurrentMap<Long, Integer> globalSessionsWithTimeouts;
 
     public LearnerSessionTracker(SessionExpirer expirer,
@@ -68,8 +70,9 @@ public class LearnerSessionTracker extends UpgradeableSessionTracker {
         this.touchTable.set(new ConcurrentHashMap<Long, Integer>());
         this.globalSessionsWithTimeouts = sessionsWithTimeouts;
         this.serverId = id;
+        // 初始化sessionId
         nextSessionId.set(SessionTrackerImpl.initializeNextSession(serverId));
-
+        // 本地session
         this.localSessionsEnabled = localSessionsEnabled;
         if (this.localSessionsEnabled) {
             createLocalSessionTracker(expirer, tickTime, id, listener);
@@ -112,6 +115,12 @@ public class LearnerSessionTracker extends UpgradeableSessionTracker {
         return added;
     }
 
+    /**
+     * 添加session
+     * @param sessionId
+     * @param sessionTimeout
+     * @return
+     */
     public boolean addSession(long sessionId, int sessionTimeout) {
         boolean added;
         if (localSessionsEnabled && !isGlobalSession(sessionId)) {
@@ -130,6 +139,7 @@ public class LearnerSessionTracker extends UpgradeableSessionTracker {
         return added;
     }
 
+
     public boolean touchSession(long sessionId, int sessionTimeout) {
         if (localSessionsEnabled) {
             if (localSessionTracker.touchSession(sessionId, sessionTimeout)) {
@@ -147,6 +157,11 @@ public class LearnerSessionTracker extends UpgradeableSessionTracker {
         return touchTable.getAndSet(new ConcurrentHashMap<Long, Integer>());
     }
 
+    /**
+     * 创建session,并返回下一个sessionId
+     * @param sessionTimeout
+     * @return
+     */
     public long createSession(int sessionTimeout) {
         if (localSessionsEnabled) {
             return localSessionTracker.createSession(sessionTimeout);

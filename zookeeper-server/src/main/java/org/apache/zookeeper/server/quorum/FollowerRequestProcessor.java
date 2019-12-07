@@ -55,6 +55,7 @@ public class FollowerRequestProcessor extends ZooKeeperCriticalThread implements
 
     RequestProcessor nextProcessor;
 
+    // 请求处理队列
     LinkedBlockingQueue<Request> queuedRequests = new LinkedBlockingQueue<Request>();
 
     boolean finished = false;

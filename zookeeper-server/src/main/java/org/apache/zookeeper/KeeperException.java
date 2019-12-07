@@ -777,6 +777,10 @@ public abstract class KeeperException extends Exception {
     }
 
     /**
+     *
+     *   SessionMovedException是一个内部异常，不会暴露到客户端。当服务端收到一个请求，该请求的连接对应的session已经被移动到其他服务端，则抛出该异常。
+         这个异常出现的原因通常是：客户端发送了一个请求到服务端，但由于网络延迟，以至于客户端时间溢出并连接到了一个新的服务端，当旧的请求到达服务端时，服务端探测到session已经被移到新的服务端，将抛出异常并关闭连接。
+         客户端通常不从旧的连接读取信息，因此不会关注到该异常。但存在一种场景该异常将被看到：两个客户端尝试重建同一个连接（使用相同的session id和密码），客户端中的一个将重建连接成功，而另一个将失败（如果不关注该异常，将导致失败者无限期的尝试重建链接）。
      * @see Code#SESSIONMOVED
      */
     @InterfaceAudience.Public

@@ -48,6 +48,8 @@ public class FollowerZooKeeperServer extends LearnerZooKeeperServer {
 
     /*
      * Pending sync requests
+     *
+     * 待同步请求队列
      */
     ConcurrentLinkedQueue<Request> pendingSyncs;
 
@@ -83,10 +85,12 @@ public class FollowerZooKeeperServer extends LearnerZooKeeperServer {
         syncProcessor.start();
     }
 
+    // 等待处理的事务请求队列
     LinkedBlockingQueue<Request> pendingTxns = new LinkedBlockingQueue<Request>();
 
     public void logRequest(TxnHeader hdr, Record txn) {
         Request request = new Request(hdr.getClientId(), hdr.getCxid(), hdr.getType(), hdr, txn, hdr.getZxid());
+        // zxid不为0，表示本服务器已经处理过请求
         if ((request.zxid & 0xffffffffL) != 0) {
             pendingTxns.add(request);
         }
@@ -105,6 +109,7 @@ public class FollowerZooKeeperServer extends LearnerZooKeeperServer {
                     + " without seeing txn");
             return;
         }
+        // 取待处理事务请求队列中的第一个元素，并提交请求
         long firstElementZxid = pendingTxns.element().zxid;
         if (firstElementZxid != zxid) {
             LOG.error("Committing zxid 0x" + Long.toHexString(zxid)
@@ -116,6 +121,9 @@ public class FollowerZooKeeperServer extends LearnerZooKeeperServer {
         commitProcessor.commit(request);
     }
 
+    /**
+     * 同步
+     */
     synchronized public void sync(){
         if(pendingSyncs.size() ==0){
             LOG.warn("Not expecting a sync.");
@@ -123,6 +131,7 @@ public class FollowerZooKeeperServer extends LearnerZooKeeperServer {
         }
 
         Request r = pendingSyncs.remove();
+        // 提交同步请求
 		commitProcessor.commit(r);
     }
 

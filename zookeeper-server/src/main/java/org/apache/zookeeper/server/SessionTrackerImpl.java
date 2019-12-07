@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * period. Sessions are thus expired in batches made up of sessions that expire
  * in a given interval.
  *
+ *  session管理器
  *
  * 维护session的线程（zookeeper中session意味着一个物理连接，客户端connect成功之后，会发送一个connect型请求，此时就会有session 产生）
  */
@@ -49,14 +50,20 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         SessionTracker {
     private static final Logger LOG = LoggerFactory.getLogger(SessionTrackerImpl.class);
 
+    // sessionId -> session对象
     protected final ConcurrentHashMap<Long, SessionImpl> sessionsById =
         new ConcurrentHashMap<Long, SessionImpl>();
 
+    // 过期队列
     private final ExpiryQueue<SessionImpl> sessionExpiryQueue;
-
+    // sessionId -> 超时
     private final ConcurrentMap<Long, Integer> sessionsWithTimeout;
+    // 下一个sessionId
     private final AtomicLong nextSessionId = new AtomicLong();
 
+    /**
+     * session
+     */
     public static class SessionImpl implements Session {
         SessionImpl(long sessionId, int timeout) {
             this.sessionId = sessionId;
@@ -66,8 +73,11 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
 
         final long sessionId;
         final int timeout;
-        boolean isClosing;
-
+        boolean isClosing;// 标识正在关闭
+        /**
+         * 版本3.2.0增加。
+           用于表示session所在的服务器
+         */
         Object owner;
 
         public long getSessionId() { return sessionId; }
@@ -148,10 +158,14 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         return sw.toString();
     }
 
+    /**
+     * 定时清除过期的session列表
+     */
     @Override
     public void run() {
         try {
             while (running) {
+                // 等待下一个过期时间点
                 long waitTime = sessionExpiryQueue.getWaitTime();
                 if (waitTime > 0) {
                     Thread.sleep(waitTime);
@@ -159,7 +173,9 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
                 }
 
                 for (SessionImpl s : sessionExpiryQueue.poll()) {
+                    // 关闭session
                     setSessionClosing(s.sessionId);
+                    // 处理具体的过期操作
                     expirer.expire(s);
                 }
             }
@@ -169,6 +185,12 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         LOG.info("SessionTrackerImpl exited loop!");
     }
 
+    /**
+     * 采用了分桶策略，将类似的会话放在同一区块中进行管理，分配的原则是每个会话的下次超时时间点。为了保持客户端会话的有效性，客户端会在会话超时时间过期t范围内向服务端发送PING请求来保持会话的有效性。同时，服务端需要不断地接收来自客户端的心跳检测，并且需要重新激活对应的客户端会话，这个重新激活过程称为TouchSession。
+     * @param sessionId
+     * @param timeout
+     * @return
+     */
     synchronized public boolean touchSession(long sessionId, int timeout) {
         SessionImpl s = sessionsById.get(sessionId);
 
@@ -196,6 +218,12 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         sessionExpiryQueue.update(s, timeout);
     }
 
+    /**
+     * 打印session信息
+     * @param sessionId
+     * @param timeout
+     * @param sessionStatus
+     */
     private void logTraceTouchSession(long sessionId, int timeout, String sessionStatus){
         if (!LOG.isTraceEnabled())
             return;
@@ -219,6 +247,10 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         return sessionsWithTimeout.get(sessionId);
     }
 
+    /**
+     * 关闭session
+     * @param sessionId
+     */
     synchronized public void setSessionClosing(long sessionId) {
         if (LOG.isTraceEnabled()) {
             LOG.trace("Session closing: 0x" + Long.toHexString(sessionId));
@@ -230,6 +262,10 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         s.isClosing = true;
     }
 
+    /**
+     * 处理session
+     * @param sessionId
+     */
     synchronized public void removeSession(long sessionId) {
         LOG.debug("Removing session 0x" + Long.toHexString(sessionId));
         SessionImpl s = sessionsById.remove(sessionId);
@@ -254,6 +290,11 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         }
     }
 
+    /**
+     * 创建session,sessionId在原基础上加一
+     * @param sessionTimeout
+     * @return
+     */
     public long createSession(int sessionTimeout) {
         long sessionId = nextSessionId.getAndIncrement();
         addSession(sessionId, sessionTimeout);
@@ -285,6 +326,7 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         SessionImpl existedSession = sessionsById.putIfAbsent(id, session);
 
         if (existedSession != null) {
+            // 如果已经保存在该sessionId,直接取原来的session对象，added=false
             session = existedSession;
         } else {
             added = true;
@@ -297,7 +339,7 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
                     "SessionTrackerImpl --- " + actionStr + " session 0x"
                     + Long.toHexString(id) + " " + sessionTimeout);
         }
-
+        // 更新session的过期时间
         updateSessionExpiry(session, sessionTimeout);
         return added;
     }
@@ -306,6 +348,14 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         return sessionsById.containsKey(sessionId);
     }
 
+    /**
+     * 校验session
+     * @param sessionId
+     * @param owner
+     * @throws KeeperException.SessionExpiredException
+     * @throws KeeperException.SessionMovedException
+     * @throws KeeperException.UnknownSessionException
+     */
     public synchronized void checkSession(long sessionId, Object owner)
             throws KeeperException.SessionExpiredException,
             KeeperException.SessionMovedException,
@@ -328,6 +378,12 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements
         }
     }
 
+    /**
+     * 修改session所属者（服务节点）
+     * @param id
+     * @param owner
+     * @throws SessionExpiredException
+     */
     synchronized public void setOwner(long id, Object owner) throws SessionExpiredException {
         SessionImpl session = sessionsById.get(id);
         if (session == null || session.isClosing()) {

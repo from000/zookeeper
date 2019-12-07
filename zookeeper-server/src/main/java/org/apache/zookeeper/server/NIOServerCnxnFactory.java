@@ -732,9 +732,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
         maxClientCnxns = max;
     }
 
-    /**
-     * 启动线程
-     */
+
     @Override
     public void start() {
         stopped = false;

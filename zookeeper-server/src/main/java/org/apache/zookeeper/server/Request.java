@@ -18,9 +18,6 @@
 
 package org.apache.zookeeper.server;
 
-import java.nio.ByteBuffer;
-import java.util.List;
-
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooDefs.OpCode;
@@ -29,12 +26,16 @@ import org.apache.zookeeper.data.Id;
 import org.apache.zookeeper.server.quorum.flexible.QuorumVerifier;
 import org.apache.zookeeper.txn.TxnHeader;
 
+import java.nio.ByteBuffer;
+import java.util.List;
+
 /**
  * This is the structure that represents a request moving through a chain of
  * RequestProcessors. There are various pieces of information that is tacked
  * onto the request as it is processed.
  */
 public class Request {
+    // 请求结束对象
     public final static Request requestOfDeath = new Request(null, 0, 0, 0, null, null);
 
     public Request(ServerCnxn cnxn, long sessionId, int xid, int type, ByteBuffer bb, List<Id> authInfo) {

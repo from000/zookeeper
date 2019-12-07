@@ -119,10 +119,12 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      * security weight.
      */
     static final private long superSecret = 0XB3415C00L;
-
+    // 正在处理的请求数
     private final AtomicInteger requestsInProcess = new AtomicInteger(0);
+    // 存储改变记录，用于缓存
     final Deque<ChangeRecord> outstandingChanges = new ArrayDeque<>();
     // this data structure must be accessed under the outstandingChanges lock
+    // 记录路径的最新记录，用于缓存
     final HashMap<String, ChangeRecord> outstandingChangesForPath =
         new HashMap<String, ChangeRecord>();
 
@@ -428,6 +430,11 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         }
     }
 
+    /**
+     * 检查连接的sessionId是否可用
+     * @param cnxn
+     * @throws MissingSessionException
+     */
     void touch(ServerCnxn cnxn) throws MissingSessionException {
         if (cnxn == null) {
             return;
@@ -718,6 +725,13 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                 && Arrays.equals(passwd, generatePasswd(sessionId));
     }
 
+    /**
+     * 创建服务的session
+     * @param cnxn
+     * @param passwd
+     * @param timeout
+     * @return
+     */
     long createSession(ServerCnxn cnxn, byte passwd[], int timeout) {
         if (passwd == null) {
             // Possible since it's just deserialized from a packet on the wire.
@@ -725,10 +739,13 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         }
         long sessionId = sessionTracker.createSession(timeout);
         Random r = new Random(sessionId ^ superSecret);
+        // 产生随机密码
         r.nextBytes(passwd);
         ByteBuffer to = ByteBuffer.allocate(4);
         to.putInt(timeout);
+        // 服务连接设置sessionId
         cnxn.setSessionId(sessionId);
+        // 需要请求zk服务器创建session
         Request si = new Request(cnxn, sessionId, 0, OpCode.createSession, to, null);
         setLocalSessionFlag(si);
         submitRequest(si);
@@ -861,7 +878,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         }
         try {
             touch(si.cnxn);
+            // packet的请求类型是否正常
             boolean validpacket = Request.isValid(si.type);
+            //
             if (validpacket) {
                 firstProcessor.processRequest(si);
                 if (si.cnxn != null) {
@@ -880,6 +899,12 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         }
     }
 
+    /**
+     * 每进行snapCount次事务日志输出后，触发一次快照(snapshot), 此时，ZK会生成一个snapshot.*文件，
+     * 同时创建一个新的事务日志文件log.*。默认是100000.（真正的代码实现中，会进行一定的随机数处理，
+     * 以避免所有服务器在同一时间进行快照而影响性能）(Java system property:zookeeper.snapCount )
+     * @return
+     */
     public static int getSnapCount() {
         String sc = System.getProperty("zookeeper.snapCount");
         try {
@@ -1130,6 +1155,12 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         return false;
     }
 
+    /**
+     * 将客户端请求的packet对象封装成request对象
+     * @param cnxn
+     * @param incomingBuffer
+     * @throws IOException
+     */
     public void processPacket(ServerCnxn cnxn, ByteBuffer incomingBuffer) throws IOException {
         // We have the request, now process and setup for next
         InputStream bais = new ByteBufferInputStream(incomingBuffer);
