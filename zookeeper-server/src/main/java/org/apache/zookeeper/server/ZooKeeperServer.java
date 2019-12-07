@@ -509,6 +509,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     /**
      * 这是使用的是装饰器模式，建议使用责任链模式，请求处理链表达更清楚
      *
+     * 服务端的通用请求处理链：
+     *
      * 处理顺序： PrepRequestProcessor -> SyncRequestProcessor -> FinalRequestProcessor
      */
     protected void setupRequestProcessors() {
@@ -857,6 +859,10 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     protected void setLocalSessionFlag(Request si) {
     }
 
+    /**
+     * 处理客户端请求
+     * @param si
+     */
     public void submitRequest(Request si) {
         if (firstProcessor == null) {
             synchronized (this) {
@@ -880,10 +886,12 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             touch(si.cnxn);
             // packet的请求类型是否正常
             boolean validpacket = Request.isValid(si.type);
-            //
             if (validpacket) {
+                // firstProcessor这里需要根据对应的子类指向变化。比如： FollowerZookeeperServer的firstProcessor=FollowerRequestProcessor
+                // follow角色请看方法： org.apache.zookeeper.server.quorum.FollowerZooKeeperServer.setupRequestProcessors()
                 firstProcessor.processRequest(si);
                 if (si.cnxn != null) {
+                    // 修改服务端统计值
                     incInProcess();
                 }
             } else {
@@ -1225,6 +1233,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                 // Always treat packet from the client as a possible
                 // local request.
                 setLocalSessionFlag(si);
+
+                // 提交请求
                 submitRequest(si);
             }
         }
@@ -1287,21 +1297,32 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         return processTxn(request, request.getHdr(), request.getTxn());
     }
 
+    /**
+     * 处理事务和会话
+     * @param request
+     * @param hdr
+     * @param txn
+     * @return
+     */
     private ProcessTxnResult processTxn(Request request, TxnHeader hdr,
                                         Record txn) {
         ProcessTxnResult rc;
         int opCode = request != null ? request.type : hdr.getType();
         long sessionId = request != null ? request.sessionId : hdr.getClientId();
         if (hdr != null) {
+            // 根据事务请求，修改zkDatabase（最终作用到DataTree）
             rc = getZKDatabase().processTxn(hdr, txn);
         } else {
+            // 如果事务头是为空，创建一个空事务处理结果对象
             rc = new ProcessTxnResult();
         }
         if (opCode == OpCode.createSession) {
             if (hdr != null && txn instanceof CreateSessionTxn) {
+                //
                 CreateSessionTxn cst = (CreateSessionTxn) txn;
                 sessionTracker.addGlobalSession(sessionId, cst.getTimeOut());
             } else if (request != null && request.isLocalSession()) {
+                // 添加session
                 request.request.rewind();
                 int timeout = request.request.getInt();
                 request.request.rewind();
@@ -1312,6 +1333,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                         + txn.toString());
             }
         } else if (opCode == OpCode.closeSession) {
+            // 关闭session
             sessionTracker.removeSession(sessionId);
         }
         return rc;

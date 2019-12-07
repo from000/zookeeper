@@ -163,6 +163,10 @@ public class Request {
         }
     }
 
+    /**
+     * 判断是不是事务性请求
+     * @return
+     */
     public boolean isQuorum() {
         switch (this.type) {
         case OpCode.exists:

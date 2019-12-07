@@ -87,12 +87,15 @@ import java.util.concurrent.LinkedBlockingQueue;
  * state of the system. It counts on ZooKeeperServer to update
  * outstandingRequests, so that it can take into account transactions that are
  * in the queue to be applied when generating a transaction.
+ *
+ *
+ * 请求处理链的第一个处理器，主要是构建指定的请求对象（比如：CreateRequest等），校验客户端的请求参数有效性，缓存zkDatabase节点的修改状态等
  */
 public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
         RequestProcessor {
     private static final Logger LOG = LoggerFactory.getLogger(PrepRequestProcessor.class);
 
-    static boolean skipACL;
+    static boolean skipACL; // 跳过acl检查
     static {
         skipACL = System.getProperty("zookeeper.skipACL", "no").equals("yes");
         if (skipACL) {

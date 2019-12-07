@@ -78,6 +78,7 @@ public class NIOServerCnxn extends ServerCnxn {
 
     private int sessionTimeout;
 
+    // 在zk集群模式下，zkServer代表不同的对象。follow角色： FollowerZooKeeperServer; leader角色： LeaderZooKeeperServer
     private final ZooKeeperServer zkServer;
 
     /**

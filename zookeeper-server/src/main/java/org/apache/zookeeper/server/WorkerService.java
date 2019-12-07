@@ -99,6 +99,9 @@ public class WorkerService {
     }
 
     /**
+     * work调度
+     *
+     *
      * Schedule work to be done by the thread assigned to this id. Thread
      * assignment is a single mod operation on the number of threads.  If a
      * worker thread pool is not being used, work is done directly by
@@ -121,6 +124,8 @@ public class WorkerService {
                 // make sure to map negative ids as well to [0, size-1]
                 int workerNum = ((int) (id % size) + size) % size;
                 ExecutorService worker = workers.get(workerNum);
+
+                // 使用线程池执行scheduledWorkRequest的run方法
                 worker.execute(scheduledWorkRequest);
             } catch (RejectedExecutionException e) {
                 LOG.warn("ExecutorService rejected execution", e);
@@ -133,6 +138,9 @@ public class WorkerService {
         }
     }
 
+    /**
+     * 调度workRequest
+     */
     private class ScheduledWorkRequest implements Runnable {
         private final WorkRequest workRequest;
 
@@ -144,6 +152,7 @@ public class WorkerService {
         public void run() {
             try {
                 // Check if stopped while request was on queue
+                // 如果定时任务已经结束，调用workRequest的cleanup方法，否则执行doWork方法
                 if (stopped) {
                     workRequest.cleanup();
                     return;

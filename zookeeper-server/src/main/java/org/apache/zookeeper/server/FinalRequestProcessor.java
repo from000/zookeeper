@@ -82,6 +82,7 @@ public class FinalRequestProcessor implements RequestProcessor {
         ProcessTxnResult rc = null;
         synchronized (zks.outstandingChanges) {
             // Need to process local session requests
+            // 处理事务和会话
             rc = zks.processTxn(request);
 
             // request.hdr is set for write requests, which are the only ones
@@ -90,6 +91,8 @@ public class FinalRequestProcessor implements RequestProcessor {
                 TxnHeader hdr = request.getHdr();
                 Record txn = request.getTxn();
                 long zxid = hdr.getZxid();
+
+                // 删除outstandingChanges事务id小于zxid的所有事务，因为这些事务已经处理了，不用缓存
                 while (!zks.outstandingChanges.isEmpty()
                        && zks.outstandingChanges.peek().zxid <= zxid) {
                     ChangeRecord cr = zks.outstandingChanges.remove();
@@ -104,6 +107,8 @@ public class FinalRequestProcessor implements RequestProcessor {
             }
 
             // do not add non quorum packets to the queue.
+
+            // 事务性请求存放到committedLog
             if (request.isQuorum()) {
                 zks.getZKDatabase().addCommittedProposal(request);
             }
@@ -114,6 +119,8 @@ public class FinalRequestProcessor implements RequestProcessor {
         // was not being queued — ZOOKEEPER-558) properly. This happens, for example,
         // when the client closes the connection. The server should still close the session, though.
         // Calling closeSession() after losing the cnxn, results in the client close session response being dropped.
+
+        // 关闭会话
         if (request.type == OpCode.closeSession && connClosedByClient(request)) {
             // We need to check if we can close the session id.
             // Sometimes the corresponding ServerCnxnFactory could be null because
@@ -134,6 +141,7 @@ public class FinalRequestProcessor implements RequestProcessor {
         Code err = Code.OK;
         Record rsp = null;
         try {
+            // 处理请求异常
             if (request.getHdr() != null && request.getHdr().getType() == OpCode.error) {
                 /*
                  * When local session upgrading is disabled, leader will
@@ -158,11 +166,14 @@ public class FinalRequestProcessor implements RequestProcessor {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("{}",request);
             }
+            // 处理不同的请求类型
             switch (request.type) {
             case OpCode.ping: {
+                // 更新延迟
                 zks.serverStats().updateLatency(request.createTime);
 
                 lastOp = "PING";
+
                 cnxn.updateStatsForResponse(request.cxid, request.zxid, lastOp,
                         request.createTime, Time.currentElapsedTime());
 
@@ -452,7 +463,7 @@ public class FinalRequestProcessor implements RequestProcessor {
             LOG.error("Dumping request buffer: 0x" + sb.toString());
             err = Code.MARSHALLINGERROR;
         }
-
+        // 最后一个zxid
         long lastZxid = zks.getZKDatabase().getDataTreeLastProcessedZxid();
         ReplyHeader hdr =
             new ReplyHeader(request.cxid, lastZxid, err.intValue());
@@ -462,6 +473,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                     request.createTime, Time.currentElapsedTime());
 
         try {
+            // 服务端发送响应信息
             cnxn.sendResponse(hdr, rsp, "response");
             if (request.type == OpCode.closeSession) {
                 cnxn.sendCloseSession();

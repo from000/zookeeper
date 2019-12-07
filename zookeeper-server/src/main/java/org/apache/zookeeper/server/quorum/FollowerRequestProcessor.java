@@ -83,6 +83,9 @@ public class FollowerRequestProcessor extends ZooKeeperCriticalThread implements
                 // We want to queue the request to be processed before we submit
                 // the request to the leader so that we are ready to receive
                 // the response
+
+                // 根据方法：org.apache.zookeeper.server.quorum.FollowerZooKeeperServer.setupRequestProcessors()
+                // 这里的nextProcessor=CommitProcessor
                 nextProcessor.processRequest(request);
 
                 // We now ship the request to the leader. As with all
@@ -144,6 +147,8 @@ public class FollowerRequestProcessor extends ZooKeeperCriticalThread implements
             if (upgradeRequest != null) {
                 queuedRequests.add(upgradeRequest);
             }
+
+            // 添加之后，注意run方法将取出request
             queuedRequests.add(request);
         }
     }

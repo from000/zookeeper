@@ -82,18 +82,23 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
 
     /**
      * Requests that have been committed.
+     *
+     * 已经提交的请求队列
      */
     protected final LinkedBlockingQueue<Request> committedRequests =
         new LinkedBlockingQueue<Request>(); // 已经收到过半服务器ack的请求队列，意味着该请求可以被提交了。
 
     /** Request for which we are currently awaiting a commit */
+    // 下一个等待提交的请求
     protected final AtomicReference<Request> nextPending =
         new AtomicReference<Request>();
     /** Request currently being committed (ie, sent off to next processor) */
+    // 当前正在提交的请求
     private final AtomicReference<Request> currentlyCommitting =
         new AtomicReference<Request>();
 
     /** The number of requests currently being processed */
+    // 当前正在执行的请求数
     protected AtomicInteger numRequestsProcessing = new AtomicInteger(0);
 
     RequestProcessor nextProcessor;
@@ -128,6 +133,11 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
         return currentlyCommitting.get() != null;
     }
 
+    /**
+     * 是否需要提交请求（是否是事务性请求）
+     * @param request
+     * @return
+     */
     protected boolean needCommit(Request request) {
         switch (request.type) {
             case OpCode.create:
@@ -157,6 +167,7 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
         try {
             while (!stopped) {
                 synchronized(this) {
+                    // 如果没有需要执行的请求或者已经有请求正在执行，线程等待
                     while (
                         !stopped &&
                         ((queuedRequests.isEmpty() || isWaitingForCommit() || isProcessingCommit()) &&
@@ -174,8 +185,10 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
                        !isProcessingCommit() &&
                        (request = queuedRequests.poll()) != null) {
                     if (needCommit(request)) {
+                        // 如果当前请求需要提交，将它设置到nextPending对象中
                         nextPending.set(request);
                     } else {
+                        //
                         sendToNextProcessor(request);
                     }
                 }
@@ -184,6 +197,8 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
                  * Processing committedRequests: check and see if the commit
                  * came in for the pending request. We can only commit a
                  * request when there is no other request being processed.
+                 *
+                 *
                  */
                 processCommitted();
             }
@@ -265,9 +280,12 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
     /**
      * Schedule final request processing; if a worker thread pool is not being
      * used, processing is done directly by this thread.
+     *
+     *
      */
     private void sendToNextProcessor(Request request) {
         numRequestsProcessing.incrementAndGet();
+        // 使用线程池调度请求任务，主要是异步执行CommitWorkRequest.doWork方法
         workerPool.schedule(new CommitWorkRequest(request), request.sessionId);
     }
 
@@ -293,6 +311,8 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
 
         public void doWork() throws RequestProcessorException {
             try {
+                // 调用下一个调度器的processRequest方法，如果是follow角色，根据方法org.apache.zookeeper.server.quorum.FollowerZooKeeperServer.setupRequestProcessors()
+                // nextProcessor=FinalRequestProcessor
                 nextProcessor.processRequest(request);
             } finally {
                 // If this request is the commit request that was blocking
@@ -341,6 +361,7 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
         if (LOG.isDebugEnabled()) {
             LOG.debug("Processing request:: " + request);
         }
+        // 添加到请求处理队列中
         queuedRequests.add(request);
         if (!isWaitingForCommit()) {
             wakeup();
