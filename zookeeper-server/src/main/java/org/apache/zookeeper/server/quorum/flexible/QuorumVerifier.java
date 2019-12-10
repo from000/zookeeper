@@ -34,6 +34,12 @@ import java.util.Set;
 
 public interface QuorumVerifier {
     long getWeight(long id);
+
+    /**
+     * 是否通过投票
+     * @param set
+     * @return
+     */
     boolean containsQuorum(Set<Long> set);
     long getVersion();
     void setVersion(long ver);

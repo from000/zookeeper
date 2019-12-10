@@ -24,21 +24,33 @@ import java.util.ArrayList;
 import java.util.HashSet;
 
 /**
- *
+ * 投票统计器
  */
 public class SyncedLearnerTracker {
-
+    /**
+     * 已经ack确认的投票验证器
+     */
     protected ArrayList<QuorumVerifierAcksetPair> qvAcksetPairs = 
                 new ArrayList<QuorumVerifierAcksetPair>();
 
+    /**
+     * 添加投票验证器
+     * @param qv
+     */
     public void addQuorumVerifier(QuorumVerifier qv) {
         qvAcksetPairs.add(new QuorumVerifierAcksetPair(qv,
                 new HashSet<Long>(qv.getVotingMembers().size())));
     }
 
+    /**
+     * 所有的投票验证器添加sid认证
+     * @param sid
+     * @return
+     */
     public boolean addAck(Long sid) {
         boolean change = false;
         for (QuorumVerifierAcksetPair qvAckset : qvAcksetPairs) {
+            // 遍历所有的投票验证器，如果含有该sid就在ackset中添加
             if (qvAckset.getQuorumVerifier().getVotingMembers().containsKey(sid)) {
                 qvAckset.getAckset().add(sid);
                 change = true;

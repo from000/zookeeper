@@ -18,31 +18,8 @@
 
 package org.apache.zookeeper.server.quorum;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.net.BindException;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.net.SocketException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicLong;
-
-import javax.security.sasl.SaslException;
-
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.common.Time;
-import org.apache.zookeeper.common.X509Exception;
 import org.apache.zookeeper.server.FinalRequestProcessor;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.RequestProcessor;
@@ -53,6 +30,17 @@ import org.apache.zookeeper.server.util.SerializeUtils;
 import org.apache.zookeeper.server.util.ZxidUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.security.sasl.SaslException;
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.net.*;
+import java.nio.ByteBuffer;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
@@ -66,6 +54,9 @@ public class Leader {
         LOG.info("TCP NoDelay set to: " + nodelay);
     }
 
+    /**
+     * 提议
+     */
     static public class Proposal  extends SyncedLearnerTracker {
         public QuorumPacket packet;
         public Request request;
@@ -104,6 +95,7 @@ public class Leader {
     private final HashSet<LearnerHandler> learners =
         new HashSet<LearnerHandler>();
 
+    // 客户端提议数据统计
     private final BufferStats proposalStats;
 
     public BufferStats getProposalStats() {
@@ -228,7 +220,7 @@ public class Leader {
        }
        return qv.containsQuorum(ids);
     }
-    
+    // leader作为服务端接收客户端的请求
     private final ServerSocket ss;
 
     Leader(QuorumPeer self,LeaderZooKeeperServer zk) throws IOException {
@@ -376,6 +368,10 @@ public class Leader {
     // VisibleForTesting
     protected final Proposal newLeaderProposal = new Proposal();
 
+    /**
+     * 主要操作：
+     * 为每一个learner的请求，创建一个learnerHandler进行处理
+     */
     class LearnerCnxAcceptor extends ZooKeeperCriticalThread {
         private volatile boolean stop = false;
 
@@ -391,6 +387,7 @@ public class Leader {
                     Socket s = null;
                     boolean error = false;
                     try {
+                        // 接收learner的请求
                         s = ss.accept();
 
                         // start with the initLimit, once the ack is processed
@@ -443,7 +440,7 @@ public class Leader {
         }
     }
 
-    StateSummary leaderStateSummary;
+    StateSummary leaderStateSummary; // 记录leader当前的状态
 
     long epoch = -1;
     boolean waitingForNewEpoch = true;
@@ -458,6 +455,7 @@ public class Leader {
      * @throws InterruptedException
      */
     void lead() throws IOException, InterruptedException {
+        // 计算选举leader用时
         self.end_fle = Time.currentElapsedTime();
         long electionTimeTaken = self.end_fle - self.start_fle;
         self.setElectionTimeTaken(electionTimeTaken);
@@ -466,6 +464,7 @@ public class Leader {
         self.start_fle = 0;
         self.end_fle = 0;
 
+        // 注册jmx
         zk.registerJMX(new LeaderBean(this, zk), self.jmxLocalPeerBean);
 
         try {
@@ -476,11 +475,12 @@ public class Leader {
 
             // Start thread that waits for connection requests from
             // new followers.
+            // 处理每一个learner请求
             cnxAcceptor = new LearnerCnxAcceptor();
             cnxAcceptor.start();
-
+            // 计算选举批次
             long epoch = getEpochToPropose(self.getId(), self.getAcceptedEpoch());
-
+            // 根据新的选举批次，重新初始化zxid
             zk.setZxid(ZxidUtils.makeZxid(epoch, 0));
 
             synchronized(this){
@@ -1054,7 +1054,7 @@ public class Leader {
         sendObserverPacket(qp);
     }
 
-    long lastProposed;
+    long lastProposed; // 最后一次提议的zxid
 
 
     /**
@@ -1197,21 +1197,34 @@ public class Leader {
         return lastProposed;
     }
     // VisibleForTesting
+    // 已经连接的所有follower的sid集合
     protected final Set<Long> connectingFollowers = new HashSet<Long>();
+
+    /**
+     * 获取选举批次
+     * @param sid
+     * @param lastAcceptedEpoch
+     * @return
+     * @throws InterruptedException
+     * @throws IOException
+     */
     public long getEpochToPropose(long sid, long lastAcceptedEpoch) throws InterruptedException, IOException {
         synchronized(connectingFollowers) {
             if (!waitingForNewEpoch) {
                 return epoch;
             }
+            // 如果接收的投票批次大于leader缓存的，当前批次加一
             if (lastAcceptedEpoch >= epoch) {
                 epoch = lastAcceptedEpoch+1;
             }
+            // 如果是follower
             if (isParticipant(sid)) {
                 connectingFollowers.add(sid);
             }
             QuorumVerifier verifier = self.getQuorumVerifier();
             if (connectingFollowers.contains(self.getId()) &&
                                             verifier.containsQuorum(connectingFollowers)) {
+                // 如果已经投票成功
                 waitingForNewEpoch = false;
                 self.setAcceptedEpoch(epoch);
                 connectingFollowers.notifyAll();
