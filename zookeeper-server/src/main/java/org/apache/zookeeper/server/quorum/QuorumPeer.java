@@ -76,6 +76,11 @@ import java.util.concurrent.atomic.AtomicReference;
  * </pre>
  *
  * The request for the current leader will consist solely of an xid: int xid;
+ *
+ *  QuorumPeer 是集群模式下特有的对象，是 ZooKeeper 服务器实例（ZooKeeperServer）的托管者，
+ *  从集群层面看，QuorumPeer 代表了 ZooKeeper 集群中的一台机器。在运行期间，QuorumPeer
+ *  会不断检测当前服务器实例的运行状态，同时根据情况发起 Leader 选举。
+ *
  */
 public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider {
     private static final Logger LOG = LoggerFactory.getLogger(QuorumPeer.class);
@@ -89,6 +94,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     // of updates; see the implementation comment at setLastSeenQuorumVerifier().
     private AtomicReference<QuorumCnxManager> qcmRef = new AtomicReference<>();
 
+    // 认证服务
     QuorumAuthServer authServer;
     QuorumAuthLearner authLearner;
 
@@ -98,6 +104,8 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
      * instantiated later. Also, it is created once on
      * bootup and only thrown away in case of a truncate
      * message from the leader
+     *
+     * zk内存数据库
      */
     private ZKDatabase zkDb;
 
@@ -126,16 +134,19 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         }
     }
 
+    /**
+     * server主要配置对象，主要是通过解析配置构建server对象
+     */
     public static class QuorumServer {
-        public InetSocketAddress addr = null;
+        public InetSocketAddress addr = null; //
 
         public InetSocketAddress electionAddr = null;
         
         public InetSocketAddress clientAddr = null;
         
-        public long id;
+        public long id; // serverId
 
-        public String hostname;
+        public String hostname; // 服务器host名称
         
         public LearnerType type = LearnerType.PARTICIPANT;
         
@@ -305,6 +316,9 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             setMyAddrs();
         }
 
+        /**
+         * 设置服务地址，选举地址等
+         */
         private void setMyAddrs() {
             this.myAddrs = new ArrayList<InetSocketAddress>();
             this.myAddrs.add(this.addr);
@@ -313,9 +327,15 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             this.myAddrs = excludedSpecialAddresses(this.myAddrs);
         }
 
+        /**
+         * 修改ipv6的host表示
+         * @param addr
+         * @return
+         */
         private static String delimitedHostString(InetSocketAddress addr)
         {
             String host = addr.getHostString();
+            // ipv6
             if (host.contains(":")) {
                 return "[" + host + "]";
             } else {
@@ -323,6 +343,10 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             }
         }
 
+        /**
+         * 服务配置对象打印
+         * @return
+         */
         public String toString(){
             StringWriter sw = new StringWriter();
             //addr should never be null, but just to make sure
@@ -368,6 +392,11 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             return true;
         }
 
+        /**
+         * 判断当前对象的地址和其他server对象的地址是否存在重复。防止配置文件中，存在server.x中存在两个相同的地址
+         * @param s 其他服务对象
+         * @throws BadArgumentsException
+         */
         public void checkAddressDuplicate(QuorumServer s) throws BadArgumentsException {
             List<InetSocketAddress> otherAddrs = new ArrayList<InetSocketAddress>();
             otherAddrs.add(s.addr);
@@ -386,6 +415,11 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             }
         }
 
+        /**
+         * 排除特殊地址： 0.0.0.0/localhost/127.0.0.1
+         * @param addrs
+         * @return
+         */
         private List<InetSocketAddress> excludedSpecialAddresses(List<InetSocketAddress> addrs) {
             List<InetSocketAddress> included = new ArrayList<InetSocketAddress>();
             InetAddress wcAddr = new InetSocketAddress(0).getAddress();
@@ -395,7 +429,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                     continue;
                 }
                 InetAddress inetaddr = addr.getAddress();
-
+                // 特殊地址
                 if (inetaddr == null ||
                     inetaddr.equals(wcAddr) || // wildCard address(0.0.0.0)
                     inetaddr.isLoopbackAddress()) { // loopback address(localhost/127.0.0.1)
@@ -408,8 +442,15 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     }
 
 
+    /**
+     * 服务器状态
+     *
+     */
     public enum ServerState {
-        LOOKING, FOLLOWING, LEADING, OBSERVING;
+        LOOKING,
+        FOLLOWING,
+        LEADING,
+        OBSERVING;
     }
 
     /*
@@ -419,9 +460,13 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
      *
      * We need this distinction to decide which ServerState to move to when
      * conditions change (e.g. which state to become after LOOKING).
+     *
+     *
+     * 定义learner类型
      */
     public enum LearnerType {
-        PARTICIPANT, OBSERVER;
+        PARTICIPANT,
+        OBSERVER;
     }
 
     /*
@@ -434,8 +479,11 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
 
     /*
      * Record leader election time
+     *
+     * fast leader election开始，结束的时间
      */
     public long start_fle, end_fle; // fle = fast leader election
+    // fast leader election的时间单位
     public static final String FLE_TIME_UNIT = "MS";
 
     /*
@@ -475,11 +523,13 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     private QuorumVerifier lastSeenQuorumVerifier = null;
 
     // Lock object that guard access to quorumVerifier and lastSeenQuorumVerifier.
+
+    // 保护quorumVerifier and lastSeenQuorumVerifier对象修改
     final Object QV_LOCK = new Object();
 
 
     /**
-     * My id
+     * My id  / serverId
      */
     private long myid;
 
@@ -495,7 +545,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     void setId(long id) {
         this.myid = id;
     }
-
+    //
     private boolean sslQuorum;
     private boolean shouldUsePortUnification;
 
@@ -515,6 +565,8 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
 
     /**
      * This is who I think the leader currently is.
+     *
+     * leader的投票对象
      */
     volatile private Vote currentVote;
 
@@ -1432,6 +1484,8 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     /**
      * Observers are not contained in this view, only nodes with
      * PeerType=PARTICIPANT.
+     *
+     * 所有的投票者列表
      */
     public Map<Long,QuorumPeer.QuorumServer> getVotingView() {
         return getQuorumVerifier().getVotingMembers();

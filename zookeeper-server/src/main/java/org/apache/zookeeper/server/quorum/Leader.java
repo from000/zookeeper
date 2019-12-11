@@ -119,7 +119,7 @@ public class Leader {
 
     // list of followers that are ready to follow (i.e synced with the leader)
     private final HashSet<LearnerHandler> forwardingFollowers =
-        new HashSet<LearnerHandler>();
+        new HashSet<LearnerHandler>(); // follower的learnHandler集合
 
     /**
      * Returns a copy of the current forwarding follower snapshot
@@ -137,7 +137,7 @@ public class Leader {
     }
 
     private final HashSet<LearnerHandler> observingLearners =
-        new HashSet<LearnerHandler>();
+        new HashSet<LearnerHandler>(); // observer的learnHandler集合
 
     /**
      * Returns a copy of the current observer snapshot
@@ -156,7 +156,7 @@ public class Leader {
 
     // Pending sync requests. Must access under 'this' lock.
     private final HashMap<Long,List<LearnerSyncRequest>> pendingSyncs =
-        new HashMap<Long,List<LearnerSyncRequest>>();
+        new HashMap<Long,List<LearnerSyncRequest>>(); // //正在处理的同步(要等到过半ack才算完)
 
     synchronized public int getNumPendingSyncs() {
         return pendingSyncs.size();
@@ -166,6 +166,8 @@ public class Leader {
     final AtomicLong followerCounter = new AtomicLong(-1);
 
     /**
+     * 添加learnerHandler处理learner的请求
+     *
      * Adds peer to the leader.
      *
      * @param learner
@@ -179,6 +181,8 @@ public class Leader {
 
     /**
      * Remove the learner from the learner list
+     *
+     * 在learner的列表中移除一个peer
      *
      * @param peer
      */
@@ -194,6 +198,11 @@ public class Leader {
         }
     }
 
+    /**
+     * 判断当前learnerHandler是不是已经同步ack
+     * @param peer
+     * @return
+     */
     boolean isLearnerSynced(LearnerHandler peer){
         synchronized (forwardingFollowers) {
             return forwardingFollowers.contains(peer);
@@ -1066,6 +1075,9 @@ public class Leader {
         return ZxidUtils.getEpochFromZxid(lastProposed);
     }
 
+    /**
+     * zxid中低32位已经达到最大值，抛出该异常
+     */
     @SuppressWarnings("serial")
     public static class XidRolloverException extends Exception {
         public XidRolloverException(String message) {

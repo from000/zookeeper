@@ -43,8 +43,23 @@ public interface QuorumVerifier {
     boolean containsQuorum(Set<Long> set);
     long getVersion();
     void setVersion(long ver);
+
+    /**
+     * zk集群的所有服务成员
+     * @return
+     */
     Map<Long, QuorumServer> getAllMembers();
+
+    /**
+     * 投票者成员集合，key:serverId。投票者不一定都是follower,如果选举成功，就会变成leader
+     * @return
+     */
     Map<Long, QuorumServer> getVotingMembers();
+
+    /**
+     * observer成员集合，key:serverId
+     * @return
+     */
     Map<Long, QuorumServer> getObservingMembers();
     boolean equals(Object o);
     String toString();

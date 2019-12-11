@@ -24,6 +24,18 @@ import org.apache.zookeeper.server.quorum.QuorumPeer.ServerState;
  * 投票实例
  */
 public class Vote {
+
+    final private int version; // 投票版本
+
+    final private long id; // serverId
+
+    final private long zxid; // 事务id
+
+    final private long electionEpoch; // 选举轮次
+
+    final private long peerEpoch; //每次leader【选举完成】之后，都会选举出一个新的peerEpoch，用来标记事务请求所属的轮次
+
+    final private ServerState state; // 服务状态
     
     public Vote(long id,
                     long zxid) {
@@ -85,15 +97,7 @@ public class Vote {
         this.version = 0x0;
     }
 
-    final private int version;
 
-    final private long id;
-    
-    final private long zxid;
-    
-    final private long electionEpoch;
-    
-    final private long peerEpoch;
     
     public int getVersion() {
         return version;
@@ -119,7 +123,7 @@ public class Vote {
         return state;
     }
 
-    final private ServerState state;
+
     
     @Override
     public boolean equals(Object o) {

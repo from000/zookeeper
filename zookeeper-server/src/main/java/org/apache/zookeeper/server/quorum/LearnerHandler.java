@@ -68,7 +68,7 @@ public class LearnerHandler extends ZooKeeperThread {
      * it's based on the initLimit, if we are done bootstrapping it's based
      * on the syncLimit. Once the deadline is past this learner should
      * be considered no longer "sync'd" with the leader. */
-    volatile long tickOfNextAckDeadline;
+    volatile long tickOfNextAckDeadline; // 下一个ACK截止时间
     
     /**
      * ZooKeeper server identifier of this learner

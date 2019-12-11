@@ -7,3 +7,6 @@ http://www.nosqlnotes.com/technotes/zookeeper-ssl/
 
 # 3.Zookeeper详解（八）：Zookeeper数据存储
 https://blog.51cto.com/littledevil/2134476
+
+# 4.ZooKeeper动态配置
+https://www.cnblogs.com/dupang/p/5649843.html

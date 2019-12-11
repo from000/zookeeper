@@ -43,6 +43,10 @@ import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.Map.Entry;
 
+/**
+ * QuorumPeer配置对象，主要包含静态配置和动态配置(3.5.0)
+ * 动态配置主要是以：server,group,weight开头
+ */
 @InterfaceAudience.Public
 public class QuorumPeerConfig {
     private static final Logger LOG = LoggerFactory.getLogger(QuorumPeerConfig.class);
@@ -51,16 +55,20 @@ public class QuorumPeerConfig {
 
     private static boolean standaloneEnabled = true;
     private static boolean reconfigEnabled = false;
-
+    // 服务端监听地址
     protected InetSocketAddress clientPortAddress;
     protected InetSocketAddress secureClientPortAddress;
     protected boolean sslQuorum = false;
     protected boolean shouldUsePortUnification = false;
     protected boolean sslQuorumReloadCertFiles = false;
+    // zookeeper的快照数据目录
     protected File dataDir;
+    // 事务日志目录
     protected File dataLogDir;
     protected String dynamicConfigFileStr = null;
+    // zk配置文件地址（一般是zoo.cfg）
     protected String configFileStr = null;
+    // Zookeeper 服务器之间或客户端之间维持心跳的时间间隔
     protected int tickTime = ZooKeeperServer.DEFAULT_TICK_TIME;
     protected int maxClientCnxns = 60;
     /** defaults to -1 if not set explicitly */
@@ -69,17 +77,29 @@ public class QuorumPeerConfig {
     protected int maxSessionTimeout = -1;
     protected boolean localSessionsEnabled = false;
     protected boolean localSessionsUpgradingEnabled = false;
-
+    // 允许 follower （相对于 leader 而言的“客户端”）连接 并同步到  leader 的初始化连接时间，它以 tickTime 的倍数来表示。当超过设置倍数的 tickTime 时间，则连接失败。
     protected int initLimit;
+    // leader 与 follower 之间发送消息，请求 和 应答 时限
     protected int syncLimit;
-    protected int electionAlg = 3;
-    protected int electionPort = 2182;
-    protected boolean quorumListenOnAllIPs = false;
 
+    /* 选举算法,默认为3，可以选择(0,1,2,3),    
+    0表示使用原生的UDP(LeaderElection),
+    1表示使用费授权的UDP
+    2表示使用授权的UDP(AuthFastLeaderElection)  
+    3基于TCP的快速选举(FastLeaderElection)
+    */
+    protected int electionAlg = 3;
+    // 选举端口
+    protected int electionPort = 2182;
+    // Zookeeper服务器将监听所有可用IP地址的连接。如果在虚拟化的服务器上这个值需要设置为true
+    protected boolean quorumListenOnAllIPs = false;
+    // 服务id
     protected long serverId = UNSET_SERVERID;
 
     protected QuorumVerifier quorumVerifier = null, lastSeenQuorumVerifier = null;
+    // 快照保留个数（最新）
     protected int snapRetainCount = 3;
+    // zk清理间隔时间
     protected int purgeInterval = 0;
     protected boolean syncEnabled = true;
 
@@ -429,6 +449,8 @@ public class QuorumPeerConfig {
 
     /**
      * Configure SSL authentication only if it is not configured.
+     *
+     * 配置ssl身份认证
      * 
      * @throws ConfigException
      *             If authentication scheme is configured but authentication
@@ -452,6 +474,8 @@ public class QuorumPeerConfig {
     /**
      * Backward compatibility -- It would backup static config file on bootup
      * if users write dynamic configuration in "zoo.cfg".
+     *
+     * 备份配置文件，备份文件名是原文件名+.bak
      */
     private void backupOldConfig() throws IOException {
         new AtomicFileWritingIdiom(new File(configFileStr + ".bak"), new OutputStreamStatement() {
@@ -514,6 +538,8 @@ public class QuorumPeerConfig {
      * If it needs to erase client port information left by the old config,
      * "eraseClientPortAddress" should be set true.
      * It should also updates dynamic file pointer on reconfig.
+     *
+     * 编辑静态配置文件，静态文件中会移除server.X,group等动态配置，并增加dynamicConfigFile指定动态配置文件路径
      */
     public static void editStaticConfig(final String configFileStr,
                                         final String dynamicFileStr,
@@ -571,7 +597,10 @@ public class QuorumPeerConfig {
         });
     }
 
-
+    /**
+     * 删除文件
+     * @param filename
+     */
     public static void deleteFile(String filename){
        if (filename == null) return;
        File f = new File(filename);

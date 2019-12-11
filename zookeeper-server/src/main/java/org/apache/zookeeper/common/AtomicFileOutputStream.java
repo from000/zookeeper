@@ -45,8 +45,8 @@ public class AtomicFileOutputStream extends FilterOutputStream {
     private final static Logger LOG = LoggerFactory
             .getLogger(AtomicFileOutputStream.class);
 
-    private final File origFile;
-    private final File tmpFile;
+    private final File origFile; // 原文件对象
+    private final File tmpFile; // 临时文件对象
 
     public AtomicFileOutputStream(File f) throws FileNotFoundException {
         // Code unfortunately must be duplicated below since we can't assign

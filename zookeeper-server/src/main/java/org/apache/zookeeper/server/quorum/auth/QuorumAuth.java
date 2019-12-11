@@ -18,20 +18,24 @@
 
 package org.apache.zookeeper.server.quorum.auth;
 
-import java.io.DataInputStream;
-import java.io.IOException;
 import org.apache.jute.BinaryInputArchive;
-
+import org.apache.zookeeper.server.quorum.QuorumAuthPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.zookeeper.server.quorum.QuorumAuthPacket;
+import java.io.DataInputStream;
+import java.io.IOException;
 
+/**
+ * sasl配置对象
+ */
 public class QuorumAuth {
     private static final Logger LOG = LoggerFactory.getLogger(QuorumAuth.class);
-
+    // to enable quorum authentication using SASL
     public static final String QUORUM_SASL_AUTH_ENABLED = "quorum.auth.enableSasl";
+    // If this is true, then all unauthenticated quorum peer learner connection requests will be rejected.
     public static final String QUORUM_SERVER_SASL_AUTH_REQUIRED = "quorum.auth.serverRequireSasl";
+    // If this is true, quorum peer learner will send authentication packet to quorum peer server then proceeds with LE on successful authentication.
     public static final String QUORUM_LEARNER_SASL_AUTH_REQUIRED = "quorum.auth.learnerRequireSasl";
 
     public static final String QUORUM_KERBEROS_SERVICE_PRINCIPAL = "quorum.auth.kerberos.servicePrincipal";
