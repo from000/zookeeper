@@ -10,3 +10,6 @@ https://blog.51cto.com/littledevil/2134476
 
 # 4.ZooKeeper动态配置
 https://www.cnblogs.com/dupang/p/5649843.html
+
+# 5.Zookeeper的服务器角色
+https://www.cnblogs.com/leesf456/p/6139266.html

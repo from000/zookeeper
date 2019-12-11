@@ -28,16 +28,18 @@ import org.slf4j.LoggerFactory;
  * {@link #beginSnapshot(boolean)} before sending a snapshot and
  * {@link #endSnapshot()} after finishing, successfully or not.
  *
+ * 限制leader同时发送快照到learner的个数
+ *
  */
 public class LearnerSnapshotThrottler {
     private static final Logger LOG =
             LoggerFactory.getLogger(LearnerSnapshotThrottler.class);
 
     private final Object snapCountSyncObject = new Object();
-    private int snapsInProgress;
+    private int snapsInProgress; // 正在发送快照的个数
 
-    private final int maxConcurrentSnapshots;
-    private final long timeoutMillis;
+    private final int maxConcurrentSnapshots; // 最大发送快照的个数
+    private final long timeoutMillis; // 发送快照超时时间
 
     /**
      * Constructs a new instance limiting the concurrent number of snapshots to
@@ -64,6 +66,7 @@ public class LearnerSnapshotThrottler {
         }
 
         this.maxConcurrentSnapshots = maxConcurrentSnapshots;
+        // 超时时间
         this.timeoutMillis = timeoutMillis;
 
         synchronized (snapCountSyncObject) {
@@ -77,6 +80,8 @@ public class LearnerSnapshotThrottler {
 
     /**
      * Indicates that a new snapshot is about to be sent.
+     *
+     * 如果essential=true,假如已经达到最大的快照数会抛出异常
      * 
      * @param essential if <code>true</code>, do not throw an exception even
      *                  if throttling limit is reached
@@ -98,6 +103,7 @@ public class LearnerSnapshotThrottler {
                 && snapsInProgress >= maxConcurrentSnapshots) {
                 long timestamp = Time.currentElapsedTime();
                 do {
+                    // 如果大于最大的发送快照次数，等待
                     snapCountSyncObject.wait(timeoutMillis);
                 } while (snapsInProgress >= maxConcurrentSnapshots
                          && timestamp + timeoutMillis < Time.currentElapsedTime());
@@ -117,6 +123,8 @@ public class LearnerSnapshotThrottler {
 
     /**
      * Indicates that a snapshot has been completed.
+     *
+     * 标识一个快照已经完成
      */
     public void endSnapshot() {
         int newCount;

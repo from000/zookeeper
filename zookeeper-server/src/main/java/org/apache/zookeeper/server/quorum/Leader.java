@@ -45,6 +45,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * This class has the control logic for the Leader.
+ *
+ * leader责任：
+ * 　(1) 事务请求的唯一调度和处理者，保证集群事务处理的顺序性。
+ 　　(2) 集群内部各服务器的调度者。
  */
 public class Leader {
     private static final Logger LOG = LoggerFactory.getLogger(Leader.class);
@@ -78,7 +82,7 @@ public class Leader {
         maxConcurrentSnapshotTimeout = Long.getLong(MAX_CONCURRENT_SNAPSHOT_TIMEOUT, 5);
         LOG.info(MAX_CONCURRENT_SNAPSHOT_TIMEOUT + " = " + maxConcurrentSnapshotTimeout);
     }
-
+    // 限制发送learner的快照
     private final LearnerSnapshotThrottler learnerSnapshotThrottler;
 
     final LeaderZooKeeperServer zk;
@@ -92,6 +96,7 @@ public class Leader {
     volatile LearnerCnxAcceptor cnxAcceptor = null;
 
     // list of all the followers
+    // 所有的learner列表
     private final HashSet<LearnerHandler> learners =
         new HashSet<LearnerHandler>();
 
@@ -268,6 +273,18 @@ public class Leader {
     }
 
     /**
+     * 定义消息类型，参考：https://www.cnblogs.com/leesf456/p/6139266.html -> 2.4 集群间消息通信
+     */
+    //---------------------------------------------------------------------
+    // 数据同步型。指在Learner和Leader服务器进行数据同步时，网络通信所用到的消息，通常有DIFF、TRUNC、SNAP、UPTODATE
+    //---------------------------------------------------------------------
+
+    /**
+     * This message type is sent by the leader to indicate that the follower is
+     * now uptodate andt can start responding to clients.
+     */
+    final static int UPTODATE = 12;
+    /**
      * This message is for follower to expect diff
      */
     final static int DIFF = 13;
@@ -281,7 +298,13 @@ public class Leader {
      * This is for follower to download the snapshots
      */
     final static int SNAP = 15;
+    //---------------------------------------------------------------------
 
+
+
+    //---------------------------------------------------------------------
+    // 服务器初始化型。指在整个集群或是某些新机器初始化时，Leader和Learner之间相互通信所使用的消息类型，常见的有OBSERVERINFO、FOLLOWERINFO、LEADERINFO、ACKEPOCH和NEWLEADER五种
+    //---------------------------------------------------------------------
     /**
      * This tells the leader that the connecting peer is actually an observer
      */
@@ -300,12 +323,6 @@ public class Leader {
     final static int FOLLOWERINFO = 11;
 
     /**
-     * This message type is sent by the leader to indicate that the follower is
-     * now uptodate andt can start responding to clients.
-     */
-    final static int UPTODATE = 12;
-
-    /**
      * This message is the first that a follower receives from the leader.
      * It has the protocol version and the epoch of the leader.
      */
@@ -315,6 +332,13 @@ public class Leader {
      * This message is used by the follow to ack a proposed epoch.
      */
     public static final int ACKEPOCH = 18;
+
+    //---------------------------------------------------------------------
+
+
+    //---------------------------------------------------------------------
+    // 请求处理型。指在进行清理时，Leader和Learner服务器之间互相通信所使用的消息，常见的有REQUEST、PROPOSAL、ACK、COMMIT、INFORM和SYNC六种。
+    //---------------------------------------------------------------------
 
     /**
      * This message type is sent to a leader to request and mutation operation.
@@ -339,17 +363,6 @@ public class Leader {
     final static int COMMIT = 4;
 
     /**
-     * This message type is enchanged between follower and leader (initiated by
-     * follower) to determine liveliness.
-     */
-    final static int PING = 5;
-
-    /**
-     * This message type is to validate a session that should be active.
-     */
-    final static int REVALIDATE = 6;
-
-    /**
      * This message is a reply to a synchronize command flushing the pipe
      * between the leader and the follower.
      */
@@ -359,19 +372,38 @@ public class Leader {
      * This message type informs observers of a committed proposal.
      */
     final static int INFORM = 8;
-    
+
     /**
      * Similar to COMMIT, only for a reconfig operation.
      */
     final static int COMMITANDACTIVATE = 9;
-    
+
     /**
      * Similar to INFORM, only for a reconfig operation.
      */
     final static int INFORMANDACTIVATE = 19;
-    
-    final ConcurrentMap<Long, Proposal> outstandingProposals = new ConcurrentHashMap<Long, Proposal>();
+    //---------------------------------------------------------------------
 
+
+
+    //---------------------------------------------------------------------
+    // 会话管理型。指Zookeeper在进行会话管理时和Learner服务器之间互相通信所使用的消息，常见的有PING和REVALIDATE两种。
+    //---------------------------------------------------------------------
+    /**
+     * This message type is enchanged between follower and leader (initiated by
+     * follower) to determine liveliness.
+     */
+    final static int PING = 5;
+
+    /**
+     * This message type is to validate a session that should be active.
+     */
+    final static int REVALIDATE = 6;
+    //---------------------------------------------------------------------
+
+    // 还没有处理完的提议，key:zxid
+    final ConcurrentMap<Long, Proposal> outstandingProposals = new ConcurrentHashMap<Long, Proposal>();
+    // 即将生效的提议
     private final ConcurrentLinkedQueue<Proposal> toBeApplied = new ConcurrentLinkedQueue<Proposal>();
 
     // VisibleForTesting
@@ -452,6 +484,7 @@ public class Leader {
     StateSummary leaderStateSummary; // 记录leader当前的状态
 
     long epoch = -1;
+    //是否在等待新的acceptEpoch号生成
     boolean waitingForNewEpoch = true;
 
     // when a reconfig occurs where the leader is removed or becomes an observer, 
@@ -676,10 +709,13 @@ public class Leader {
         }
     }
 
+    // 是否已经结束
     boolean isShutdown;
 
     /**
      * Close down all the LearnerHandlers
+     *
+     * leader关闭
      */
     void shutdown(String reason) {
         LOG.info("Shutting down");
@@ -708,6 +744,8 @@ public class Leader {
         if (zk != null) {
             zk.shutdown();
         }
+
+        // 移除learnerHandler
         synchronized (learners) {
             for (Iterator<LearnerHandler> it = learners.iterator(); it
                     .hasNext();) {
@@ -770,6 +808,8 @@ public class Leader {
     }
 
     /**
+     * 如果当前的提议提交就返回true,否则返回false
+     *
      * @return True if committed, otherwise false.
      **/
     synchronized public boolean tryToCommit(Proposal p, long zxid, SocketAddress followerAddr) {       
@@ -847,6 +887,8 @@ public class Leader {
      * Keep a count of acks that are received by the leader for a particular
      * proposal
      *
+     * 针对提议回复ACK的处理逻辑，如果过半验证了就通知所有Learner
+     *
      * @param zxid, the zxid of the proposal sent out
      * @param sid, the id of the server that sent the ack
      * @param followerAddr
@@ -863,7 +905,9 @@ public class Leader {
             }
             LOG.trace("outstanding proposals all");
         }
-        
+        /**
+         * zxid的counter=0
+         */
         if ((zxid & 0xffffffffL) == 0) {
             /*
              * We no longer process NEWLEADER ack with this method. However,
@@ -872,14 +916,15 @@ public class Leader {
              */
             return;
         }
-            
-            
+
+        //没有处理当中的提议
         if (outstandingProposals.size() == 0) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("outstanding is 0");
             }
             return;
         }
+        //提议已经处理过了
         if (lastCommitted >= zxid) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("proposal has already been committed, pzxid: 0x{} zxid: 0x{}",
@@ -888,6 +933,7 @@ public class Leader {
             // The proposal has already been committed
             return;
         }
+        // 从准备处理的提议中获取zxid对应的提议
         Proposal p = outstandingProposals.get(zxid);
         if (p == null) {
             LOG.warn("Trying to commit future proposal: zxid 0x{} from {}",
@@ -921,7 +967,12 @@ public class Leader {
            }
         }
     }
-    
+
+    /**
+     *
+     * 如果提议已经被提交了，就从toBeApplied队列中移除
+     * 参考：https://www.jianshu.com/p/dadb8b61545a
+     */
     static class ToBeAppliedRequestProcessor implements RequestProcessor {
         private final RequestProcessor next;
 
@@ -990,6 +1041,8 @@ public class Leader {
     /**
      * send a packet to all the followers ready to follow
      *
+     * 添加packet到learnerHandler的请求队列中
+     *
      * @param qp
      *                the packet to be sent
      */
@@ -1010,10 +1063,13 @@ public class Leader {
         }
     }
 
+    // 最后提交的zxid
     long lastCommitted = -1;
 
     /**
      * Create a commit packet and send it to all the members of the quorum
+     *
+     * 发送提交packet请求给learner
      *
      * @param zxid
      */
@@ -1087,6 +1143,8 @@ public class Leader {
 
     /**
      * create a proposal and send it out to all the members
+     *
+     * 创建提议并发送到所有到所有成员
      *
      * @param request
      * @return the proposal that is queued to send to all the members
@@ -1257,9 +1315,28 @@ public class Leader {
     }
 
     // VisibleForTesting
+
     protected final Set<Long> electingFollowers = new HashSet<Long>();
     // VisibleForTesting
     protected boolean electionFinished = false;
+
+    /**
+     * 等待超过半数的follower ack
+     * <li>首先判断当前leader的epoch、lastZxid是否比参数{@link ss}更新，<br>
+     * <ol>
+     * <li>如果新，那么将follower的sid加入到electingFollowers列表</li>
+     * <li>如果ss更新，说明follower的epoch或者lastZxid比leader更大，
+     * 那么follower不能加入到集群中来，所以抛出错误信息。</li>
+     * </ol>
+     * </li>
+     * <li>检查electingFollowers集合，判断是否有超过半数的follower回复了leader，如果是，唤醒线程；
+     * 如果不是那么等待直到超时或者达到半数这个条件。</li>
+     *
+     * @param id
+     * @param ss
+     * @throws IOException
+     * @throws InterruptedException
+     */
     public void waitForEpochAck(long id, StateSummary ss) throws IOException, InterruptedException {
         synchronized(electingFollowers) {
             if (electionFinished) {
@@ -1273,6 +1350,7 @@ public class Leader {
                                                     + leaderStateSummary.getLastZxid()
                                                     + " (last zxid)");
                 }
+                // follower
                 if (isParticipant(id)) {
                     electingFollowers.add(id);
                 }

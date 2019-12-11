@@ -18,9 +18,12 @@
 
 package org.apache.zookeeper.server.quorum;
 
+/**
+ * learner快照
+ */
 public class LearnerSnapshot {
     private final LearnerSnapshotThrottler throttler;
-    private final int concurrentSnapshotNumber;
+    private final int concurrentSnapshotNumber; // leader同时发送快照到learner的个数
     private final boolean essential;
 
     LearnerSnapshot(LearnerSnapshotThrottler throttler, 

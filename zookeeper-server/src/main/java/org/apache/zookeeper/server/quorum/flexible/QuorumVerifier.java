@@ -28,11 +28,16 @@ import java.util.Set;
  * containsQuorum, which verifies if a HashSet of server 
  * identifiers constitutes a quorum.
  *
- * 维护zk集群中各成员列表和权重等关系
+ * 集群验证器，维护zk集群中各成员列表和权重等关系
  *
  */
 
 public interface QuorumVerifier {
+    /**
+     * 服务权重
+     * @param id serverId
+     * @return
+     */
     long getWeight(long id);
 
     /**

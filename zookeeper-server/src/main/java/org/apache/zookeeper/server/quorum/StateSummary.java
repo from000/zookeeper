@@ -39,7 +39,12 @@ public class StateSummary {
 	public long getLastZxid() {
 		return lastZxid;
 	}
-	
+
+	/**
+	 * 判断当前的状态统计对象比ss更新
+	 * @param ss
+	 * @return
+	 */
 	public boolean isMoreRecentThan(StateSummary ss) {
 		return (currentEpoch > ss.currentEpoch) || (currentEpoch == ss.currentEpoch && lastZxid > ss.lastZxid);
 	}
