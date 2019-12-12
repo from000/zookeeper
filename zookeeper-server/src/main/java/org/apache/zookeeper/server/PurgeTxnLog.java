@@ -84,7 +84,7 @@ public class PurgeTxnLog {
         int numSnaps = snaps.size();
         if (numSnaps > 0) {
             //  snaps.get(numSnaps - 1)最后一个可以保存的快照
-            // 清楚老的快照
+            // 清除老的快照
             purgeOlderSnapshots(txnLog, snaps.get(numSnaps - 1));
         }
     }
@@ -92,7 +92,7 @@ public class PurgeTxnLog {
     /**
      * 清除当前快照对象snapShot对应的zxid之前的数据和快照文件
      * @param txnLog
-     * @param snapShot
+     * @param snapShot 最后一个要保留的快照文件对象
      */
     // VisibleForTesting
     static void purgeOlderSnapshots(FileTxnSnapLog txnLog, File snapShot) {

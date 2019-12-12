@@ -111,6 +111,7 @@ public class DatadirCleanupManager {
         TimerTask task = new PurgeTask(dataLogDir, snapDir, snapRetainCount);
         timer.scheduleAtFixedRate(task, 0, TimeUnit.HOURS.toMillis(purgeInterval));
 
+        // 标识清理服务启动成功
         purgeTaskStatus = PurgeTaskStatus.STARTED;
     }
 
@@ -131,9 +132,9 @@ public class DatadirCleanupManager {
      * zookeeper数据清理任务
      */
     static class PurgeTask extends TimerTask {
-        private File logsDir;
-        private File snapsDir;
-        private int snapRetainCount;
+        private File logsDir; // 事务日志目录
+        private File snapsDir; // 快照目录
+        private int snapRetainCount; // 保持快照个数
 
         public PurgeTask(File dataDir, File snapDir, int count) {
             logsDir = dataDir;

@@ -88,6 +88,13 @@ public class ZooKeeperServerMain {
         System.exit(0);
     }
 
+    /**
+     * 解析单机模式的配置对象，并启动单机模式
+     * @param args
+     * @throws ConfigException
+     * @throws IOException
+     * @throws AdminServerException
+     */
     protected void initializeAndRun(String[] args)
         throws ConfigException, IOException, AdminServerException
     {
@@ -101,8 +108,10 @@ public class ZooKeeperServerMain {
         // 服务配置
         ServerConfig config = new ServerConfig();
         if (args.length == 1) {
+            // 解析配置文件
             config.parse(args[0]);
         } else {
+            // 解析配置参数
             config.parse(args);
         }
         // 根据配置运行服务
@@ -110,6 +119,8 @@ public class ZooKeeperServerMain {
     }
 
     /**
+     * 根据配置运行zk单机服务
+     *
      * Run from a ServerConfig.
      * @param config ServerConfig to use.
      * @throws IOException
@@ -124,6 +135,8 @@ public class ZooKeeperServerMain {
             // so rather than spawning another thread, we will just call
             // run() in this thread.
             // create a file logger url from the command line args
+
+            // 管理事务日志和快照
             txnLog = new FileTxnSnapLog(config.dataLogDir, config.dataDir);
             final ZooKeeperServer zkServer = new ZooKeeperServer(txnLog,
                     config.tickTime, config.minSessionTimeout, config.maxSessionTimeout, null);
@@ -182,7 +195,7 @@ public class ZooKeeperServerMain {
                 secureCnxnFactory.join();
             }
             if (zkServer.canShutdown()) {
-                //完全清楚zkDataBase
+                //完全清除zkDataBase
                 zkServer.shutdown(true);
             }
         } catch (InterruptedException e) {

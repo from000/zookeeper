@@ -54,6 +54,7 @@ public final class ConnectStringParser {
         // parse out chroot, if any
         int off = connectString.indexOf('/');
         if (off >= 0) {
+            // 比如： /hallo/welt
             String chrootPath = connectString.substring(off);
             // ignore "/" chroot spec, same as null
             if (chrootPath.length() == 1) {
@@ -62,6 +63,7 @@ public final class ConnectStringParser {
                 PathUtils.validatePath(chrootPath);
                 this.chrootPath = chrootPath;
             }
+            // 比如： 10.10.10.1,10.10.10.2
             connectString = connectString.substring(0, off);
         } else {
             this.chrootPath = null;

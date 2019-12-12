@@ -104,6 +104,13 @@ public class QuorumPeerMain {
         System.exit(0);
     }
 
+    /**
+     * 解析配置并运行（单机模式+集群模式）
+     * @param args
+     * @throws ConfigException
+     * @throws IOException
+     * @throws AdminServerException
+     */
     protected void initializeAndRun(String[] args)
         throws ConfigException, IOException, AdminServerException
     {

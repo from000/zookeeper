@@ -111,6 +111,9 @@ public class ZooKeeperMain {
         }
     }
 
+    /**
+     * cli 自定义watcher: 打印event
+     */
     private class MyWatcher implements Watcher {
         public void process(WatchedEvent event) {
             if (getPrintWatches()) {
@@ -201,7 +204,7 @@ public class ZooKeeperMain {
 
         /**
          * Breaks a string into command + arguments.
-         * 解析命令
+         * 解析命令和参数
          *
          * @param cmdstring string of form "cmd arg1 arg2..etc"
          * @return true if parsing succeeded.
@@ -255,7 +258,14 @@ public class ZooKeeperMain {
         System.out.println("\n"+msg);
     }
 
+    /**
+     * zk客户端连接zk服务
+     * @param newHost
+     * @throws InterruptedException
+     * @throws IOException
+     */
     protected void connectToZK(String newHost) throws InterruptedException, IOException {
+        // 如果zk cli客户端已经启动
         if (zk != null && zk.getState().isAlive()) {
             zk.close();
         }
@@ -268,9 +278,17 @@ public class ZooKeeperMain {
         }
         zk = new ZooKeeperAdmin(host, Integer.parseInt(cl.getOption("timeout")), new MyWatcher(), readOnly);
     }
-    
+
+    /**
+     * 启动zk cli客户端
+     * @param args 一般是-server localhost:2181
+     * @throws CliException
+     * @throws IOException
+     * @throws InterruptedException
+     */
     public static void main(String args[]) throws CliException, IOException, InterruptedException
     {
+        // 创建zk客户端
         ZooKeeperMain main = new ZooKeeperMain(args);
         main.run();
     }
@@ -319,6 +337,7 @@ public class ZooKeeperMain {
                 String line;
                 Method readLine = consoleC.getMethod("readLine", String.class);
                 while ((line = (String)readLine.invoke(console, getPrompt())) != null) {
+                    // 执行命令行
                     executeLine(line);
                 }
             } catch (ClassNotFoundException e) {
@@ -360,6 +379,7 @@ public class ZooKeeperMain {
         cl.parseCommand(line);
         // 添加到历史记录
         addToHistory(commandCount,line);
+        // 执行命令
         processCmd(cl);
         commandCount++;
       }

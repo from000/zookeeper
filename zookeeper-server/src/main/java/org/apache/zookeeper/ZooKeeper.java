@@ -883,6 +883,8 @@ public class ZooKeeper implements AutoCloseable {
                 connectString);
         hostProvider = aHostProvider;
         // 创建客户端连接
+        // connectStringParser.getChrootPath(),是指host路径可以指定成类似：localhost:2181/root,此时chrootPath=/root
+        // getClientCnxnSocket()是使用工厂模式创建客户端的连接对象，可以通过zookeeper.clientCnxnSocket配置指定，默认是ClientCnxnSocketNIO对象
         cnxn = createConnection(connectStringParser.getChrootPath(),
                 hostProvider, sessionTimeout, this, watchManager,
                 getClientCnxnSocket(), canBeReadOnly);

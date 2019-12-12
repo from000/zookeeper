@@ -81,12 +81,15 @@ public class Commands {
      *    - "error" key containing a String error message or null if no error
      */
     public static CommandResponse runCommand(String cmdName, ZooKeeperServer zkServer, Map<String, String> kwargs) {
+        // commands通过registerCommand添加命令
         if (!commands.containsKey(cmdName)) {
             return new CommandResponse(cmdName, "Unknown command: " + cmdName);
         }
+        // 保证zkServer是可用
         if (zkServer == null || !zkServer.isRunning()) {
             return new CommandResponse(cmdName, "This ZooKeeper instance is not currently serving requests");
         }
+        // 运行命令
         return commands.get(cmdName).run(zkServer, kwargs);
     }
 
@@ -150,6 +153,7 @@ public class Commands {
      * @see ZooKeeperServer#getConf()
      */
     public static class ConfCommand extends CommandBase {
+        // 通过CommandBase构造器可知，CommandBase=configuration，names=conf,config
         public ConfCommand() {
             super(Arrays.asList("configuration", "conf", "config"));
         }

@@ -183,13 +183,14 @@ public class FileSnap implements SnapShot {
      * @throws IOException
      */
     public List<File> findNRecentSnapshots(int n) throws IOException {
-        // 数据zxid排序
+        // 快照文件按照zxid降序
         List<File> files = Util.sortDataDir(snapDir.listFiles(), SNAPSHOT_FILE_PREFIX, false);
         int count = 0;
         List<File> list = new ArrayList<File>();
         for (File f: files) {
             if (count == n)
                 break;
+            // 如果是快照文件
             if (Util.getZxidFromName(f.getName(), SNAPSHOT_FILE_PREFIX) != -1) {
                 count++;
                 list.add(f);

@@ -23,7 +23,7 @@ import java.util.Map;
 /**
  * Configuration data for a {@link ZooKeeperServer}. This class is immutable.
  *
- * zookeeper 服务的配置对象
+ * zookeeper 服务相关配置对象
  */
 public class ZooKeeperServerConf {
     /**

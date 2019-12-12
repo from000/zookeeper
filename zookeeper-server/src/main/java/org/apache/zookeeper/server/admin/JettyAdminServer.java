@@ -54,11 +54,11 @@ public class JettyAdminServer implements AdminServer {
     public static final String DEFAULT_COMMAND_URL = "/commands";
     private static final String DEFAULT_ADDRESS = "0.0.0.0";
 
-    private final Server server;
-    private final String address;
-    private final int port;
-    private final int idleTimeout;
-    private final String commandUrl;
+    private final Server server; // jetty server对象
+    private final String address; // jetty server监听的地址
+    private final int port; // 服务端口
+    private final int idleTimeout; // 超时时间
+    private final String commandUrl; // 命令的通用地址
     private ZooKeeperServer zkServer;
 
     public JettyAdminServer() throws AdminServerException {
@@ -156,6 +156,13 @@ public class JettyAdminServer implements AdminServer {
     private class CommandServlet extends HttpServlet {
         private static final long serialVersionUID = 1L;
 
+        /**
+         * 处理get请求
+         * @param request
+         * @param response
+         * @throws ServletException
+         * @throws IOException
+         */
         protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
             // Capture the command name from the URL
 
@@ -175,6 +182,7 @@ public class JettyAdminServer implements AdminServer {
 
             // Extract keyword arguments to command from request parameters
 
+            // 请求参数对象
             @SuppressWarnings("unchecked")
             Map<String, String[]> parameterMap = request.getParameterMap();
             Map<String, String> kwargs = new HashMap<String, String>();
@@ -187,6 +195,8 @@ public class JettyAdminServer implements AdminServer {
             CommandResponse cmdResponse = Commands.runCommand(cmd, zkServer, kwargs);
 
             // Format and print the output of the command
+
+            // json格式输出
             CommandOutputter outputter = new JsonOutputter();
             response.setStatus(HttpServletResponse.SC_OK);
             response.setContentType(outputter.getContentType());

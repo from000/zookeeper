@@ -1,0 +1,10 @@
+@startuml
+PurgeTask -> PurgeTxnLog: purge(清理事务日志和快照)
+PurgeTxnLog --> FileTxnSnapLog: findNRecentSnapshots(查找最近的n个快照文件)
+FileTxnSnapLog --> FileSnap: findNRecentSnapshots
+
+FileSnap --> FileTxnSnapLog
+FileTxnSnapLog --> PurgeTxnLog
+PurgeTxnLog --> PurgeTxnLog: purgeOlderSnapshots(根据需要保存的快照数，清理多余快照)
+PurgeTxnLog --> PurgeTask
+@enduml

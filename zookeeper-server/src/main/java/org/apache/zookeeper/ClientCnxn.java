@@ -380,6 +380,7 @@ public class ClientCnxn {
         sendThread = new SendThread(clientCnxnSocket);
         eventThread = new EventThread();
         this.clientConfig=zooKeeper.getClientConfig();
+        // 修改requestTimeout
         initRequestTimeout();
     }
 
