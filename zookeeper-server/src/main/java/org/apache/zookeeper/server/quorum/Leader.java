@@ -49,10 +49,15 @@ import java.util.concurrent.atomic.AtomicLong;
  * leader责任：
  * 　(1) 事务请求的唯一调度和处理者，保证集群事务处理的顺序性。
  　　(2) 集群内部各服务器的调度者。
+
+    参考：https://www.jianshu.com/p/400f03120047
  */
 public class Leader {
     private static final Logger LOG = LoggerFactory.getLogger(Leader.class);
-
+    /*
+    启动TCP_NODELAY，就意味着禁用了Nagle算法，允许小包的发送。对于延时敏感型，同时数据传输量比较小的应用，开启TCP_NODELAY选项无疑是一个正确的选择
+    参考： https://blog.csdn.net/lclwjl/article/details/80154565
+     */
     static final private boolean nodelay = System.getProperty("leader.nodelay", "true").equals("true");
     static {
         LOG.info("TCP NoDelay set to: " + nodelay);
@@ -1267,7 +1272,7 @@ public class Leader {
         return lastProposed;
     }
     // VisibleForTesting
-    // 已经连接的所有follower的sid集合
+    // 已经连接的所有投票者的sid集合
     protected final Set<Long> connectingFollowers = new HashSet<Long>();
 
     /**
@@ -1315,7 +1320,7 @@ public class Leader {
     }
 
     // VisibleForTesting
-
+    // 正在选举的投票者（follower+未来的leader）
     protected final Set<Long> electingFollowers = new HashSet<Long>();
     // VisibleForTesting
     protected boolean electionFinished = false;
@@ -1357,6 +1362,7 @@ public class Leader {
             }
             QuorumVerifier verifier = self.getQuorumVerifier();
             if (electingFollowers.contains(self.getId()) && verifier.containsQuorum(electingFollowers)) {
+                // 如果选举成功
                 electionFinished = true;
                 electingFollowers.notifyAll();
             } else {
@@ -1364,6 +1370,7 @@ public class Leader {
                 long cur = start;
                 long end = start + self.getInitLimit()*self.getTickTime();
                 while(!electionFinished && cur < end) {
+                    // 等待选举成功
                     electingFollowers.wait(end - cur);
                     cur = Time.currentElapsedTime();
                 }
@@ -1392,6 +1399,8 @@ public class Leader {
 
     /**
      * Start up Leader ZooKeeper server and initialize zxid to the new epoch
+     *
+     * 启动zk server,初始化zxid
      */
     private synchronized void startZkServer() {
         // Update lastCommitted and Db's zxid to a value representing the new epoch
@@ -1433,6 +1442,8 @@ public class Leader {
     /**
      * Process NEWLEADER ack of a given sid and wait until the leader receives
      * sufficient acks.
+     *
+     * 等到有过半的参与者针对Leader发出的NEWLEADER返回ACK
      *
      * @param sid
      * @throws InterruptedException
@@ -1534,6 +1545,11 @@ public class Leader {
         return self.isRunning() && zk.isRunning();
     }
 
+    /**
+     * 是否是投票者
+     * @param sid
+     * @return
+     */
     private boolean isParticipant(long sid) {
         return self.getQuorumVerifier().getVotingMembers().containsKey(sid);
     }

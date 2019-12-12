@@ -18,9 +18,6 @@
 
 package org.apache.zookeeper.server.quorum;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-
 import org.apache.jute.Record;
 import org.apache.zookeeper.server.ObserverBean;
 import org.apache.zookeeper.server.Request;
@@ -30,12 +27,17 @@ import org.apache.zookeeper.server.util.SerializeUtils;
 import org.apache.zookeeper.txn.SetDataTxn;
 import org.apache.zookeeper.txn.TxnHeader;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+
 /**
  * Observers are peers that do not take part in the atomic broadcast protocol.
  * Instead, they are informed of successful proposals by the Leader. Observers
  * therefore naturally act as a relay point for publishing the proposal stream
  * and can relieve Followers of some of the connection load. Observers may
  * submit proposals, but do not vote in their acceptance.
+ *
+ * 观察者角色(没有投票权)
  *
  * See ZOOKEEPER-368 for a discussion of this feature.
  */
@@ -57,6 +59,8 @@ public class Observer extends Learner{
 
     /**
      * the main method called by the observer to observe the leader
+     *
+     * 连接注册到leader,并处理leader的packet
      * @throws Exception 
      */
     void observeLeader() throws Exception {

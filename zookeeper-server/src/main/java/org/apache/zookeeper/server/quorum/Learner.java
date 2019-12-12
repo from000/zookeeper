@@ -48,12 +48,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * ensemble: Followers and Observers. Both Followers and Observers share 
  * a good deal of code which is moved into Peer to avoid duplication. 
  */
-public class Learner {       
+public class Learner {
+    /*
+    这个类是记录Leader发出提议，但是还没有通过过半验证时候记录的数据格式类名代表"还在处理的包"
+     */
     static class PacketInFlight {
         TxnHeader hdr;
         Record rec;
     }
-    QuorumPeer self;
+    QuorumPeer self; // 当前服务对象
     LearnerZooKeeperServer zk;
     
     protected BufferedOutputStream bufferedOutput;
@@ -68,18 +71,20 @@ public class Learner {
         return sock;
     }
     
-    protected InputArchive leaderIs;
-    protected OutputArchive leaderOs;  
+    protected InputArchive leaderIs; // leader输入
+    protected OutputArchive leaderOs;  // 输出到leader
     /** the protocol version of the leader */
-    protected int leaderProtocolVersion = 0x01;
+    protected int leaderProtocolVersion = 0x01; // leader的协议版本
     
     protected static final Logger LOG = LoggerFactory.getLogger(Learner.class);
 
+    // tcp_nodelay
     static final private boolean nodelay = System.getProperty("follower.nodelay", "true").equals("true");
     static {
         LOG.info("TCP NoDelay set to: " + nodelay);
-    }   
-    
+    }
+
+    // client连接到learner时，learner要向leader提出REVALIDATE请求，在收到回复之前，记录在一个map中，表示尚未处理完的验证
     final ConcurrentHashMap<Long, ServerCnxn> pendingRevalidations =
         new ConcurrentHashMap<Long, ServerCnxn>();
     
@@ -138,6 +143,8 @@ public class Learner {
     /**
      * read a packet from the leader
      *
+     * 读取leader的packet
+     *
      * @param pp
      *                the packet to be instantiated
      * @throws IOException
@@ -186,15 +193,19 @@ public class Learner {
     
     /**
      * Returns the address of the node we think is the leader.
+     *
+     * 查找leader server
      */
     protected QuorumServer findLeader() {
         QuorumServer leaderServer = null;
         // Find the leader by id
+        // 当前的vote保存的是leader的信息
         Vote current = self.getCurrentVote();
         for (QuorumServer s : self.getView().values()) {
             if (s.id == current.getId()) {
                 // Ensure we have the leader's correct IP address before
                 // attempting to connect.
+                // 重新解析dns
                 s.recreateSocketAddresses();
                 leaderServer = s;
                 break;
@@ -225,9 +236,12 @@ public class Learner {
     }
 
     /**
+     *
+     * learner作为客户端连接leader,并初始化leader的序列化输入/输出流
+     *
      * Establish a connection with the Leader found by findLeader. Retries
      * until either initLimit time has elapsed or 5 tries have happened. 
-     * @param addr - the address of the Leader to connect to.
+     * @param addr - the address of the Leader to connect to. ---- leader的地址
      * @throws IOException - if the socket connection fails on the 5th attempt
      * <li>if there is an authentication failure while connecting to leader</li>
      * @throws ConnectException
@@ -235,6 +249,8 @@ public class Learner {
      */
     protected void connectToLeader(InetSocketAddress addr, String hostname)
             throws IOException, InterruptedException, X509Exception {
+
+        // learner的客户端
         this.sock = createSocket();
 
         int initLimitTime = self.tickTime * self.initLimit;
@@ -249,7 +265,7 @@ public class Learner {
                     LOG.error("initLimit exceeded on retries.");
                     throw new IOException("initLimit exceeded on retries.");
                 }
-
+                // learner作为客户端连接leader
                 sockConnect(sock, addr, Math.min(self.tickTime * self.syncLimit, remainingInitLimitTime));
                 if (self.isSslQuorum())  {
                     ((SSLSocket) sock).startHandshake();
@@ -281,12 +297,19 @@ public class Learner {
 
         self.authLearner.authenticate(sock, hostname);
 
+        // leader的输入和输出（基于socket）
         leaderIs = BinaryInputArchive.getArchive(new BufferedInputStream(
                 sock.getInputStream()));
         bufferedOutput = new BufferedOutputStream(sock.getOutputStream());
         leaderOs = BinaryOutputArchive.getArchive(bufferedOutput);
     }
 
+    /**
+     * 创建客户端socket
+     * @return
+     * @throws X509Exception
+     * @throws IOException
+     */
     private Socket createSocket() throws X509Exception, IOException {
         Socket sock;
         if (self.isSslQuorum()) {
@@ -300,7 +323,13 @@ public class Learner {
 
     /**
      * Once connected to the leader, perform the handshake protocol to
-     * establish a following / observing connection. 
+     * establish a following / observing connection.
+     *
+     * learner注册到leader:
+     *  (1)learner(LEARNERINFO) -> leader
+     *  (2)leader(LEADERINFO) -> learner
+     *  (3)learner(ACKEPOCH) -> leader
+     *
      * @param pktType
      * @return the zxid the Leader sends for synchronization purposes.
      * @throws IOException
@@ -322,10 +351,12 @@ public class Learner {
         BinaryOutputArchive boa = BinaryOutputArchive.getArchive(bsid);
         boa.writeRecord(li, "LearnerInfo");
         qp.setData(bsid.toByteArray());
-        
+        // 发送learnerInfo packet
         writePacket(qp, true);
+        // 读取leader发送过来的信息。leader接收到了learnerInfo信息之后，会返回leaderInfo信息
         readPacket(qp);        
         final long newEpoch = ZxidUtils.getEpochFromZxid(qp.getZxid());
+        // 处理leaderInfo
 		if (qp.getType() == Leader.LEADERINFO) {
         	// we are connected to a 1.0 server so accept the new epoch and read the next packet
         	leaderProtocolVersion = ByteBuffer.wrap(qp.getData()).getInt();
@@ -343,6 +374,8 @@ public class Learner {
         	} else {
         		throw new IOException("Leaders epoch, " + newEpoch + " is less than accepted epoch, " + self.getAcceptedEpoch());
         	}
+
+        	// 接收到leader的leaderInfo请求，learner将会发送ackEpoch信息到leader
         	QuorumPacket ackNewEpoch = new QuorumPacket(Leader.ACKEPOCH, lastLoggedZxid, epochBytes, null);
         	writePacket(ackNewEpoch, true);
             return ZxidUtils.makeZxid(newEpoch, 0);
@@ -359,7 +392,21 @@ public class Learner {
     } 
     
     /**
-     * Finally, synchronize our history with the Leader. 
+     * Finally, synchronize our history with the Leader.
+     * 启动时learner先和leader进行数据同步：
+     *
+     * 1.前面registerWithLeader函数learner会回复leader的LEADERINFO,带上了自己的lastLoggedZxid
+       2.leader根据lastLoggedZxid告诉learner是哪一种同步方式
+         DIFF同步,还是SNAP同步,还是先TRUNC回滚到某个zxid
+       3.确定同步方式之后，leader会接着给learner发送后续的同步packet，分为
+         PROPOSAL（提议）
+         COMMIT（提交，针对Follower)
+         INFORM（通知，针对Observer)
+        UPTODATE(表示过半机器已完成同步，可以对外工作)
+        NEWLEADER(leader告诉learner同步的相关请求已经发完了)
+
+        参考地址： https://www.jianshu.com/p/504e11019640
+     *
      * @param newLeaderZxid
      * @throws IOException
      * @throws InterruptedException
@@ -373,11 +420,17 @@ public class Learner {
         
         // In the DIFF case we don't need to do a snapshot because the transactions will sync on top of any existing snapshot
         // For SNAP and TRUNC the snapshot is needed to save that history
+
+        // zk内存数据库是否需要保存到快照文件中
         boolean snapshotNeeded = true;
         readPacket(qp);
+        // 提交了的packet集合
         LinkedList<Long> packetsCommitted = new LinkedList<Long>();
         LinkedList<PacketInFlight> packetsNotCommitted = new LinkedList<PacketInFlight>();
         synchronized (zk) {
+            /*
+             leader和learner的同步方式： diff,snap,trunc
+             */
             if (qp.getType() == Leader.DIFF) {
                 LOG.info("Getting a diff from the leader 0x{}", Long.toHexString(qp.getZxid()));
                 snapshotNeeded = false;
@@ -434,6 +487,7 @@ public class Learner {
             boolean writeToTxnLog = !snapshotNeeded;
             // we are now going to start getting transactions to apply followed by an UPTODATE
             outerLoop:
+            //启动时数据同步,不断读取leader的数据，直到收到UPTODATE表示同步完成
             while (self.isRunning()) {
                 readPacket(qp);
                 switch(qp.getType()) {
@@ -516,7 +570,7 @@ public class Learner {
                     }
 
                     break;                
-                case Leader.UPTODATE:
+                case Leader.UPTODATE://过半机器完成了leader验证，自己也完成了数据同步,可以跳出循环
                     LOG.info("Learner received UPTODATE message");                                      
                     if (newLeaderQV!=null) {
                        boolean majorChange =
@@ -605,7 +659,12 @@ public class Learner {
             throw new UnsupportedOperationException("Unknown server type");
         }
     }
-    
+
+    /**
+     * 接收到了leader返回的REVALIDATE信息，进行验证处理
+     * @param qp
+     * @throws IOException
+     */
     protected void revalidate(QuorumPacket qp) throws IOException {
         ByteArrayInputStream bis = new ByteArrayInputStream(qp
                 .getData());
@@ -627,7 +686,12 @@ public class Learner {
                     + " is valid: " + valid);
         }
     }
-        
+
+    /**
+     * learner接收leader的ping命令时，返回LearnerSessionTracker的快照
+     * @param qp
+     * @throws IOException
+     */
     protected void ping(QuorumPacket qp) throws IOException {
         // Send back the ping with our session data
         ByteArrayOutputStream bos = new ByteArrayOutputStream();

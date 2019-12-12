@@ -13,3 +13,6 @@ https://www.cnblogs.com/dupang/p/5649843.html
 
 # 5.Zookeeper的服务器角色
 https://www.cnblogs.com/leesf456/p/6139266.html
+
+# 6.TCP连接中启用和禁用TCP_NODELAY有什么影响？
+https://blog.csdn.net/lclwjl/article/details/80154565

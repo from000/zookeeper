@@ -64,6 +64,7 @@ public class Follower extends Learner{
      * @throws InterruptedException
      */
     void followLeader() throws InterruptedException {
+        // 选举时间
         self.end_fle = Time.currentElapsedTime();
         long electionTimeTaken = self.end_fle - self.start_fle;
         self.setElectionTimeTaken(electionTimeTaken);
@@ -73,8 +74,10 @@ public class Follower extends Learner{
         self.end_fle = 0;
         fzk.registerJMX(new FollowerBean(this, zk), self.jmxLocalPeerBean);
         try {
+            // leader服务
             QuorumServer leaderServer = findLeader();            
             try {
+                // 连接leader并注册到leader
                 connectToLeader(leaderServer.addr, leaderServer.hostname);
                 long newEpochZxid = registerWithLeader(Leader.FOLLOWERINFO);
                 if (self.isReconfigStateChange())
@@ -87,6 +90,7 @@ public class Follower extends Learner{
                             + " is less than our accepted epoch " + ZxidUtils.zxidToString(self.getAcceptedEpoch()));
                     throw new IOException("Error: Epoch of leader is lower");
                 }
+                // 同步数据
                 syncWithLeader(newEpochZxid);                
                 QuorumPacket qp = new QuorumPacket();
                 while (this.isRunning()) {
@@ -111,6 +115,8 @@ public class Follower extends Learner{
 
     /**
      * Examine the packet received in qp and dispatch based on its contents.
+     *
+     * 处理leader的packet
      * @param qp
      * @throws IOException
      */
