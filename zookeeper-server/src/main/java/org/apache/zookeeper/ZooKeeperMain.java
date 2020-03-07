@@ -307,7 +307,7 @@ public class ZooKeeperMain {
     }
 
     /**
-     * 运行命令行模式
+     * 运行命令行
      * @throws CliException
      * @throws IOException
      * @throws InterruptedException

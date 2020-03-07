@@ -1600,11 +1600,12 @@ public class ClientCnxn {
         Packet packet = queuePacket(h, r, request, response, null, null, null,
                 null, watchRegistration, watchDeregistration);
         synchronized (packet) {
-            // 如果reequestTimeout<0表示一直等待处理结束
+            // 如果reequestTimeout<=0表示一直等待处理结束
             if (requestTimeout > 0) {
                 // Wait for request completion with timeout
                 waitForPacketFinish(r, packet);
             } else {
+                // 同步
                 // Wait for request completion infinitely
                 while (!packet.finished) {
                     packet.wait();
@@ -1714,6 +1715,7 @@ public class ClientCnxn {
                 outgoingQueue.add(packet);
             }
         }
+        // 通知有新的请求，对于NIO连接来说，唤醒阻塞在selector.select上的线程
         sendThread.getClientCnxnSocket().packetAdded();
         return packet;
     }

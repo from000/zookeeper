@@ -118,6 +118,7 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements
                     si = queuedRequests.take();
                 } else {
                     si = queuedRequests.poll();
+                    // 如果没有请求，就写入磁盘，并且交给下一个处理器处理
                     if (si == null) {
                         flush(toFlush);
                         continue;
@@ -134,6 +135,7 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements
                         if (logCount > (snapCount / 2 + randRoll)) {
                             randRoll = r.nextInt(snapCount/2);
                             // roll the log
+                            // 准备创建一个快照文件，所以需要将事务日志刷新，并将日志流置为null,保证再次使用的时候会重新创建一个新的事务日志文件
                             zks.getZKDatabase().rollLog();
                             // take a snapshot
                             if (snapInProcess != null && snapInProcess.isAlive()) {
@@ -166,6 +168,7 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements
                         continue;
                     }
                     toFlush.add(si);
+                    // 如果请求数达到1000保存事务日志。
                     if (toFlush.size() > 1000) {
                         flush(toFlush);
                     }

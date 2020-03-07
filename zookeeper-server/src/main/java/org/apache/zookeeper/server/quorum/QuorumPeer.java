@@ -988,10 +988,10 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             LOG.warn("Problem starting AdminServer", e);
             System.out.println(e);
         }
-        // 启动之后马上进行选举
+        // 启动之后马上进行选举，主要是创建选举必须的环境，比如：启动相关线程
         startLeaderElection();
 
-        // 线程执行run
+        // 执行选举逻辑
         super.start();
     }
 
@@ -1053,7 +1053,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     }
 
     /**
-     * leader选举
+     * leader选举，主要是创建选举必须的环境，比如：启动相关线程
      */
     synchronized public void startLeaderElection() {
        try {

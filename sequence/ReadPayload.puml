@@ -1,0 +1,9 @@
+@startuml
+NIOServerCnxn -> NIOServerCnxn: readPayload->readRequest(读取客户端请求)
+NIOServerCnxn --> ZooKeeperServer: processPacket(将客户端请求的packet对象封装成request对象)
+ZooKeeperServer --> ZooKeeperServer: submitRequest(提交请求到请求处理器)
+ZooKeeperServer --> PrepRequestProcessor:processRequest(构建请求，校验等)
+PrepRequestProcessor --> SyncRequestProcessor:processRequest(存储日志和快照)
+SyncRequestProcessor --> FinalRequestProcessor:processRequest(更新zk内存数据库)
+
+@enduml

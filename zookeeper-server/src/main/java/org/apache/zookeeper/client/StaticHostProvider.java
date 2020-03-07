@@ -40,13 +40,23 @@ import java.util.*;
  */
 @InterfaceAudience.Public
 public final class StaticHostProvider implements HostProvider {
+
+
     public interface Resolver {
+        /**
+         * 查询域名对应的所有地址列表
+         * @param name
+         * @return
+         * @throws UnknownHostException
+         */
         InetAddress[] getAllByName(String name) throws UnknownHostException;
     }
 
     private static final Logger LOG = LoggerFactory
             .getLogger(StaticHostProvider.class);
-
+    /**
+     * 维护的地址列表
+     */
     private List<InetSocketAddress> serverAddresses = new ArrayList<InetSocketAddress>(
             5);
 
@@ -154,8 +164,14 @@ public final class StaticHostProvider implements HostProvider {
         }
     }
 
+    /**
+     * 随机打乱地址列表（深拷贝）
+     * @param serverAddresses
+     * @return
+     */
     private List<InetSocketAddress> shuffle(Collection<InetSocketAddress> serverAddresses) {
         List<InetSocketAddress> tmpList = new ArrayList<>(serverAddresses.size());
+        // 深拷贝地址列表
         tmpList.addAll(serverAddresses);
         Collections.shuffle(tmpList, sourceOfRandomness);
         return tmpList;
@@ -352,6 +368,7 @@ public final class StaticHostProvider implements HostProvider {
                 needToSleep = (spinDelay > 0);
             }        
             ++currentIndex;
+            // 如果地址列表长度已经达到最大值，从0开始，即地址列表是一个循环列表
             if (currentIndex == serverAddresses.size()) {
                 currentIndex = 0;
             }            

@@ -66,10 +66,18 @@ public class ZKDatabase {
     /**
      * make sure on a clear you take care of
      * all these members.
+     *
+     * 属性结构的底层实现
      */
     protected DataTree dataTree;
+    /**
+     * 会话id -> 超时时间
+     */
     protected ConcurrentHashMap<Long, Integer> sessionsWithTimeouts;
+    // 事务日志和快照
     protected FileTxnSnapLog snapLog;
+    // Leader提议缓存队列commitedLog中最小的ZXID
+    //
     protected long minCommittedLog, maxCommittedLog;
 
     /**

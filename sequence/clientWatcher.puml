@@ -1,0 +1,7 @@
+@startuml
+GetCommand -> ZooKeeper: getData(获取某个路径对应的数据)
+ZooKeeper --> ZooKeeper: getData(通过wcb = new DataWatchRegistration(watcher, clientPath)创建watcher注册器)
+ZooKeeper --> ClientCnxn: submitRequest(将请求添加到客户端请求队列中)
+ClientCnxn --> ClientCnxn: queuePacket(将请求封装成packet对象，并访问队列中)
+
+@enduml
